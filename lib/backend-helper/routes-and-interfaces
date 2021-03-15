@@ -1,0 +1,16 @@
+http://192.168.0.50:8080/mishka.pro/bike-gps/?cars
+        body: Token=123
+        "Content-type": "application/x-www-form-urlencoded; charset=UTF-8"
+        response: {"code":0,"groups":{"id":71,"name":"SMEU","cars":[{"IMEI":"869158000089116","phone":"","nomer":"859DC02 Ssang Yong Kyron","id":1,"name":"Ssang Yong Kyron"},{"IMEI":"869158003669732","phone":"","nomer":"892DC02 Ssang Yong Kyron","id":2,"name":"Ssang Yong Kyron"},{"IMEI":"869158009909306","phone":"","nomer":"463AU02 Ssang Yong Kyron","id":6,"name":"Ssang Yong Kyron"},{"IMEI":"869158006621169","phone":"87772779952","nomer":"A848FY"},{"IMEI":"869158004313215","phone":"87770058632","nomer":"A801KP \u0413\u0430\u0437 3110 (\u0412\u043e\u043b\u0433\u0430)","id":5,"name":"\u0413\u0430\u0437 3110 (\u0412\u043e\u043b\u0433\u0430)"},{"IMEI":"869158000149076","phone":"87777056465","nomer":"A398DY \u0412\u0430\u0437 21070","id":4,"name":"\u0412\u0430\u0437 21070"},{"IMEI":"869158000108759","phone":"87770058631","nomer":"A805FY Daewoo Matiz","id":9,"name":"Daewoo Matiz"},{"IMEI":"869158003681596","phone":"87770058610","nomer":"A861FD Daewoo Damas","id":7,"name":"Daewoo Damas"}]}}
+
+
+http://192.168.0.50:8080/mishka.pro/bike-gps/?track
+        Token = 'Token=123&OT=1615248000&DO=1615303320&ID=Ssang Yong Kyron'
+        "Content-type": "application/x-www-form-urlencoded; charset=UTF-8"
+        response: {"code":0,"data":[]}
+
+
+http://192.168.0.50:8080/mishka.pro/bike-gps/?parking
+        Token = 'Token=123&OT=1615248000&DO=1615303320&ID=Ssang Yong Kyron'
+        "Content-type": "application/x-www-form-urlencoded; charset=UTF-8"
+        response: {"code":0,"data":[]}
