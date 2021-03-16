@@ -3,7 +3,6 @@ import 'package:tracking_flutter/src/pages/home-page.dart';
 
 import '../pages/animated_map_controller.dart';
 import '../pages/map.dart';
-import '../pages/esri.dart';
 import '../pages/map_controller.dart';
 import '../pages/offline_map.dart';
 import '../pages/overlay_image.dart';
@@ -22,13 +21,6 @@ Drawer buildDrawer(BuildContext context, String currentRoute) {
           selected: currentRoute == MapPage.route,
           onTap: () {
             Navigator.pushReplacementNamed(context, MapPage.route);
-          },
-        ),
-        ListTile(
-          title: const Text('Esri'),
-          selected: currentRoute == EsriPage.route,
-          onTap: () {
-            Navigator.pushReplacementNamed(context, EsriPage.route);
           },
         ),
         ListTile(

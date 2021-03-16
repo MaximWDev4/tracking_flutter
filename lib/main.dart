@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'src/pages/home-page.dart';
 import 'src/pages/animated_map_controller.dart';
-import 'src/pages/esri.dart';
 import 'src/pages/map.dart';
 import 'src/pages/map_controller.dart';
 import 'src/pages/offline_map.dart';
@@ -22,7 +21,6 @@ class MyApp extends StatelessWidget {
       ),
       home: MapPage(),
       routes: <String, WidgetBuilder>{
-        EsriPage.route: (context) => EsriPage(),
         MapControllerPage.route: (context) => MapControllerPage(),
         AnimatedMapControllerPage.route: (context) =>
             AnimatedMapControllerPage(),

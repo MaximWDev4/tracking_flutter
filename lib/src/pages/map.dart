@@ -287,8 +287,8 @@ class _HomeScreen extends State<MapPage> {
                 children: carListWidgets
             )
         ),
-        body: Center(
-          child:
+        body: Stack(
+          children: [
           Column(
             children: [
               Flexible(
@@ -331,18 +331,34 @@ class _HomeScreen extends State<MapPage> {
                   ],
                 ),
               ),
-              FloatingActionButton(onPressed: () {
-                if (urlMapTiles != 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}')
-                  setState(() {
-                    urlMapTiles = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-                  });
-                else
-                  setState(() {
-                    urlMapTiles = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png?access_token={accessToken}';
-                  });
-              })
             ],
           ),
+          Positioned(
+              right: 5,
+              top: 5,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.layers),
+                  color: Colors.black,
+                  onPressed: () {
+                    if (urlMapTiles != 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}')
+                      setState(() {
+                        urlMapTiles = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+                      });
+                    else
+                      setState(() {
+                        urlMapTiles = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png?access_token={accessToken}';
+                      }
+                    );
+                  }
+                ),
+              ),
+            ),
+          ], // children
         ),
       ),
     );
