@@ -63,8 +63,8 @@ class _HomeScreen extends State<MapPage> {
         showTitleActions: true,
         locale: LocaleType.ru,
         theme: DatePickerTheme(
-            headerColor: ColorMap.shade900,
-            backgroundColor: ColorMap,
+            headerColor: ColorMap.appBarTheme.color,
+            backgroundColor: ColorMap.appBarTheme.backgroundColor,
             itemStyle: TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
             doneStyle: TextStyle(color: Colors.white, fontSize: 16),
@@ -101,15 +101,15 @@ class _HomeScreen extends State<MapPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(id, style: TextStyle(color: Colors.white, fontSize: 18,)),
-            Text(name, style: TextStyle(color: Colors.white, fontSize: 18,))
+            Text(id, style: ColorMap.textTheme.headline6),
+            Text(name, style: ColorMap.textTheme.headline6)
           ],
         ),
       );
     } else {
       carIdName = 'Выбрать технику';
       return Text(
-          carIdName, style: TextStyle(color: Colors.white, fontSize: 18,));
+          carIdName, style: ColorMap.textTheme.headline6);
     }
 
   }
@@ -165,12 +165,12 @@ class _HomeScreen extends State<MapPage> {
           ListTile(
             key: Key(car['id'].toString()),
             selected: selected == car['id'],
-            selectedTileColor: ColorMap.shade400,
+            selectedTileColor: ColorMap.primaryColor,
             title: Row(children: [
               Text(car['nomer'], style: TextStyle(
                   color: selected == car['id']
-                      ? Colors.white
-                      : ColorMap.shade200),),
+                      ? ColorMap.backgroundColor
+                      : ColorMap.primaryColor),),
               // Text((selected == e['nomer']).toString()),
             ]),
             onTap: () {
@@ -220,7 +220,7 @@ class _HomeScreen extends State<MapPage> {
                   child: Transform.rotate(
                     angle: 0.0 + element['angle'],
                     child: Icon(
-                      Icons.arrow_drop_up_outlined, color: ColorMap.shade900,
+                      Icons.arrow_drop_up_outlined, color: ColorMap.primaryColor,
                       size: 40,),
                   ),
                 ),
@@ -243,7 +243,7 @@ class _HomeScreen extends State<MapPage> {
       body: SlidingUpPanel(
         backdropEnabled: true,
         header: Container(
-          color: ColorMap.shade900,
+          color: ColorMap.accentColor,
           width: MediaQuery.of(context).size.width,
           height: 100.0,
           child: Row(
@@ -261,8 +261,8 @@ class _HomeScreen extends State<MapPage> {
                 child:Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Text("${fromDate.toLocal()}".split(' ')[0], style: TextStyle(color: Colors.white, fontSize: 17),),
-                    Text(formatTime(fromDate), style: TextStyle(color: Colors.white, fontSize: 18,),),
+                    Text("${fromDate.toLocal()}".split(' ')[0], style: ColorMap.textTheme.button,),
+                    Text(formatTime(fromDate), style: ColorMap.textTheme.button,),
                   ]
                 ),
               ),
@@ -271,8 +271,8 @@ class _HomeScreen extends State<MapPage> {
                 child:Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text("${toDate.toLocal()}".split(' ')[0], style: TextStyle(color: Colors.white, fontSize: 17,),),
-                      Text(formatTime(toDate), style: TextStyle(color: Colors.white, fontSize: 18,),),
+                      Text("${toDate.toLocal()}".split(' ')[0], style: ColorMap.textTheme.button,),
+                      Text(formatTime(toDate), style: ColorMap.textTheme.button,),
                     ]
                 ),
               ),
@@ -322,7 +322,7 @@ class _HomeScreen extends State<MapPage> {
                         Polyline(
                           points: _points,
                           strokeWidth: 4.0,
-                          color: ColorMap.shade300,
+                          color: ColorMap.backgroundColor,
                         ),
                       ],
                     ),
