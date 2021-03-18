@@ -1,12 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+import 'dart:async';
 import 'package:flutter_datetime_picker/flutter_datetime_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map/plugin_api.dart';
+import 'package:map_controller/map_controller.dart';
 import 'package:latlong/latlong.dart';
 
 import '../../main.dart';
@@ -57,18 +61,42 @@ class _HomeScreen extends State<MapPage> {
   List<Widget> carListWidgets = [];
   List cars = [];
   List<dynamic> dots = [];
-  var overlayImages = <OverlayImage>[];
+
+
+  MapController mapController;
+  StatefulMapController statefulMapController;
+  StreamSubscription<StatefulMapControllerStateChange> sub;
+  void initState() {
+    // intialize the controllers
+    mapController = MapController();
+    statefulMapController = StatefulMapController(mapController: mapController);
+
+    // wait for the controller to be ready before using it
+    statefulMapController.onReady.then((_) => print("The map controller is ready"));
+
+    // statefulMapController.changeFeed.transform(streamTransformer);
+    /// [Important] listen to the changefeed to rebuild the map on changes:
+    /// this will rebuild the map when for example addMarker or any method
+    /// that mutates the map assets is called
+    sub = statefulMapController.changeFeed.listen((change)
+    {
+      print(statefulMapController.zoom.toString());
+      setState(() {});
+    });
+    super.initState();
+  }
+
+
   Future<Null> _selectDate(BuildContext context, String dateVar) async {
     final DateTime picked = await DatePicker.showDateTimePicker( context,
         showTitleActions: true,
         locale: LocaleType.ru,
         theme: DatePickerTheme(
-            headerColor: ColorMap.appBarTheme.color,
-            backgroundColor: ColorMap.appBarTheme.backgroundColor,
-            itemStyle: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-            doneStyle: TextStyle(color: Colors.white, fontSize: 16),
-            cancelStyle: TextStyle(color: Colors.grey, fontSize: 16)),
+            headerColor: Get.theme.appBarTheme.color,
+            backgroundColor: Get.theme.backgroundColor,
+            itemStyle: Get.textTheme.headline5,
+            doneStyle: Get.textTheme.headline5,
+            cancelStyle: Get.textTheme.headline5),
         currentTime: dateVar == 'from' ? fromDate : toDate,
         minTime: dateVar == 'from' ? DateTime(2020, 8) : fromDate,
         maxTime: dateVar == 'from' ? toDate : DateTime.now());
@@ -84,9 +112,24 @@ class _HomeScreen extends State<MapPage> {
       }
   }
 
+
+  Color getColor(Set<MaterialState> states) {
+    const Set<MaterialState> interactiveStates = <MaterialState>{
+      MaterialState.pressed,
+      MaterialState.hovered,
+      MaterialState.focused,
+    };
+    if (states.any(interactiveStates.contains)) {
+      return Get.theme.primaryColor;
+    }
+    return Get.theme.primaryColor;
+  }
+
+
   formatTime (DateTime time) {
     return "${('0'+time.hour.toString()).substring(('0'+time.hour.toString()).length-2)}:${('0'+time.minute.toString()).substring(('0'+time.minute.toString()).length-2)}";
   }
+
 
   Widget getCarNom() {
     var carIdName = '';
@@ -101,18 +144,19 @@ class _HomeScreen extends State<MapPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(id, style: ColorMap.textTheme.headline6),
-            Text(name, style: ColorMap.textTheme.headline6)
+            Text(id, style: Get.theme.textTheme.headline6),
+            Text(name, style: Get.theme.textTheme.headline6)
           ],
         ),
       );
     } else {
       carIdName = 'Выбрать технику';
       return Text(
-          carIdName, style: ColorMap.textTheme.headline6);
+          carIdName, style: Get.theme.textTheme.headline6);
     }
 
   }
+
 
   Future fetchCars() async {
     final Uri uri = Uri.http(
@@ -122,6 +166,7 @@ class _HomeScreen extends State<MapPage> {
       return cars;
     }).catchError((err) {print(err); return [];});
   }
+
 
   Future fetchPath(car, DateTime dateFrom, DateTime dateTo) async {
     if (cars.isNotEmpty) {
@@ -146,6 +191,7 @@ class _HomeScreen extends State<MapPage> {
     }
   }
 
+
   void fetchParking(value) {
     if (cars.isNotEmpty) {
       final Uri uri = Uri.http(
@@ -157,6 +203,7 @@ class _HomeScreen extends State<MapPage> {
     }
   }
 
+
   createCarListWidgets(cars) {
     List<Widget> temp = <Widget>[];
     for (var i = 0; i < cars.length - 1; i++) {
@@ -165,12 +212,18 @@ class _HomeScreen extends State<MapPage> {
           ListTile(
             key: Key(car['id'].toString()),
             selected: selected == car['id'],
-            selectedTileColor: ColorMap.primaryColor,
+            selectedTileColor: Get.theme.primaryColor,
             title: Row(children: [
-              Text(car['nomer'], style: TextStyle(
-                  color: selected == car['id']
-                      ? ColorMap.backgroundColor
-                      : ColorMap.primaryColor),),
+              Text(
+                car['nomer'],
+                style: selected == car['id'] ?
+                  Get.theme.textTheme.headline5.copyWith(
+                      color: Colors.white
+                  ) :
+                  Get.theme.textTheme.headline5.copyWith(
+                      color: Get.theme.primaryColor
+                  ),
+              ),
               // Text((selected == e['nomer']).toString()),
             ]),
             onTap: () {
@@ -187,30 +240,21 @@ class _HomeScreen extends State<MapPage> {
     });
   }
 
+
   void setPoints(int carName, List dots) async {
     _points = [];
     markers = [];
-    overlayImages = <OverlayImage>[
-      OverlayImage(
-          bounds: LatLngBounds(LatLng(43.278717, 76.894859), LatLng(43.2789, 76.895)),
-          opacity: 1,
-          imageProvider: AssetImage('assets/car.png')
-      ),
-    ];
+    var _element;
+    var _lat;
+    var _lon;
     fetchPath(carName, fromDate, toDate).then((value) =>
     {
       value.forEach((element) {
-        // overlayImages = <OverlayImage>[
-        //   OverlayImage(
-        //       bounds: LatLngBounds(LatLng(43.278538, 76.895561), LatLng(43.57, 77.0)),
-        //       opacity: 1,
-        //       imageProvider: AssetImage('assets/car.png')
-        //   ),
-        // ];
+        _element = element;
         var lat = element['Lat'];
         var lon = element['Lon'];
         _points.add(LatLng(lat, lon));
-        if (element['id'] % 10 == 0) {
+        if (element['id'] % 1 == 0) {
           markers.add(Marker(
             width: 40.0,
             height: 40.0,
@@ -218,9 +262,9 @@ class _HomeScreen extends State<MapPage> {
             builder: (ctx) =>
                 Container(
                   child: Transform.rotate(
-                    angle: 0.0 + element['angle'],
+                    angle: element['angle'] * pi / 180,
                     child: Icon(
-                      Icons.arrow_drop_up_outlined, color: ColorMap.primaryColor,
+                      Icons.keyboard_arrow_up_rounded, color: Colors.green,
                       size: 40,),
                   ),
                 ),
@@ -228,10 +272,28 @@ class _HomeScreen extends State<MapPage> {
           ));
         }
       })
-      // .sublist(tempArr.length>50 ? 50 : 0, tempArr.length>100 ? 100 : 0);
+    }).then((_)
+    {
+      _lat = _element['Lat'];
+      _lon = _element['Lon'];
+      markers[markers.length-1] = Marker(
+        width: 40.0,
+        height: 40.0,
+        point: LatLng(_lat, _lon),
+        builder: (ctx) =>
+            Container(
+              child: Transform.rotate(
+                angle: 0.0 * pi/180  ,
+                child: Image(
+                  image: AssetImage('assets/car.png'), width: 40, height: 40,),
+              ),
+            ),
+        anchorPos: AnchorPos.align(AnchorAlign.top),
+      );
     }
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -243,7 +305,7 @@ class _HomeScreen extends State<MapPage> {
       body: SlidingUpPanel(
         backdropEnabled: true,
         header: Container(
-          color: ColorMap.accentColor,
+          color: Get.theme.backgroundColor,
           width: MediaQuery.of(context).size.width,
           height: 100.0,
           child: Row(
@@ -257,22 +319,24 @@ class _HomeScreen extends State<MapPage> {
                 child: getCarNom(),
               ),
               ElevatedButton(
+                style: ButtonStyle(backgroundColor: MaterialStateProperty.resolveWith(getColor,)),
                 onPressed: () => _selectDate(context, 'from').then((value) { if (selected != 0) setPoints(selected, dots);}),
                 child:Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Text("${fromDate.toLocal()}".split(' ')[0], style: ColorMap.textTheme.button,),
-                    Text(formatTime(fromDate), style: ColorMap.textTheme.button,),
+                    Text("${fromDate.toLocal()}".split(' ')[0], style: Get.theme.textTheme.button,),
+                    Text(formatTime(fromDate), style: Get.theme.textTheme.button,),
                   ]
                 ),
               ),
               ElevatedButton(
+                style: ButtonStyle(backgroundColor: MaterialStateProperty.resolveWith(getColor,)),
                 onPressed: () => _selectDate(context, 'to').then((value)  { if (selected != 0) setPoints(selected, dots);}),
                 child:Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text("${toDate.toLocal()}".split(' ')[0], style: ColorMap.textTheme.button,),
-                      Text(formatTime(toDate), style: ColorMap.textTheme.button,),
+                      Text("${toDate.toLocal()}".split(' ')[0], style: Get.theme.textTheme.button,),
+                      Text(formatTime(toDate), style: Get.theme.textTheme.button,),
                     ]
                 ),
               ),
@@ -293,6 +357,7 @@ class _HomeScreen extends State<MapPage> {
             children: [
               Flexible(
                 child: FlutterMap(
+                  mapController: mapController,
                   options: MapOptions(
                     center: LatLng(43.26, 76.94),
                     zoom: 12.0,
@@ -322,17 +387,20 @@ class _HomeScreen extends State<MapPage> {
                         Polyline(
                           points: _points,
                           strokeWidth: 4.0,
-                          color: ColorMap.backgroundColor,
+                          color:  Color.fromRGBO(59, 255, 00, 1),
                         ),
                       ],
                     ),
                     MarkerLayerOptions(markers: markers),
-                    OverlayImageLayerOptions(overlayImages: overlayImages),
                   ],
                 ),
               ),
             ],
           ),
+            // Positioned(
+            //     top: 15.0,
+            //     right: 15.0,
+            //     child: TileLayersBar(controller: statefulMapController)),
           Positioned(
               right: 5,
               top: 5,
