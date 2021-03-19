@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../pages/home-page.dart';
 import '../pages/map.dart';
-import '../pages/map_controller.dart';
 
 Drawer buildDrawer(BuildContext context, String currentRoute) {
   return Drawer(
@@ -21,14 +20,7 @@ Drawer buildDrawer(BuildContext context, String currentRoute) {
           },
         ),
         ListTile(
-          title: const Text('MapController'),
-          selected: currentRoute == MapControllerPage.route,
-          onTap: () {
-            Navigator.pushReplacementNamed(context, MapControllerPage.route);
-          },
-        ),
-        ListTile(
-          title: const Text('Home Page'),
+          title: const Text('Настройки'),
           selected: currentRoute == MyHomePage.route,
           onTap: () {
             Navigator.pushReplacementNamed(

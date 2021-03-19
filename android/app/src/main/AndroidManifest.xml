@@ -2,9 +2,9 @@
     package="com.example.tracking_flutter">
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="tracking_flutter"
+        android:label="Parking Map"
         android:usesCleartextTraffic="true"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/find">
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTop"

@@ -13,6 +13,7 @@ class MyApp extends StatelessWidget {
   getUserTheme() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     theme = prefs.getString('theme');
+    print(theme);
   }
 
   @override
@@ -24,9 +25,9 @@ class MyApp extends StatelessWidget {
       //   primarySwatch: ColorMap,
       // ),
       theme: ThemeData.light(),
-      darkTheme: ThemeData.dark().copyWith(primaryColor: Colors.black87, backgroundColor: Colors.black54),
+      darkTheme: ThemeData.dark(),
       // NOTE: Optional - use themeMode to specify the startup theme
-      themeMode: theme == '0' ? ThemeMode.dark : ThemeMode.dark,
+      themeMode: theme == '0' ? ThemeMode.dark : ThemeMode.light,
       home: MapPage(),
       routes: <String, WidgetBuilder>{
         MapControllerPage.route: (context) => MapControllerPage(),

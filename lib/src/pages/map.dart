@@ -5,16 +5,15 @@ import 'dart:async';
 import 'package:flutter_datetime_picker/flutter_datetime_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:http/http.dart' as http;
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'package:map_controller/map_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong/latlong.dart';
 
-import '../../main.dart';
-import '../widgets/drawer.dart';
+import '../../backend-helper/func.dart';
 
 class PointsNotifier extends ValueNotifier<List<LatLng>> {
   PointsNotifier(List<LatLng> value) : super(value);
@@ -34,16 +33,12 @@ class StringNotifier extends ValueNotifier<String> {
   }
 }
 
-
+const MapA = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+const MapB =  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png?access_token={accessToken}';
 const Token = 'pk.eyJ1IjoianVzdC1tYXgiLCJhIjoiY2ttMWo5Mm13NGRzejJubjFvazl5eWNqOSJ9.aSEaOcgSJ3aqaFgVAPKoHA';
 
 class MapPage extends StatefulWidget {
   static const String route = '/';
-  final base = '192.168.0.50:8080';
-  final headers = {
-    HttpHeaders
-        .contentTypeHeader: 'application/x-www-form-urlencoded; charset=UTF-8'
-  };
   final anchorsPosition = AnchorPos.align(AnchorAlign.center);
   MapPage({Key key}) : super(key: key);
   @override
@@ -66,21 +61,35 @@ class _HomeScreen extends State<MapPage> {
   MapController mapController;
   StatefulMapController statefulMapController;
   StreamSubscription<StatefulMapControllerStateChange> sub;
+
+  var isSwitched = false;
+
   void initState() {
+    SharedPreferences prefs;
+    f() async {
+      prefs = await SharedPreferences.getInstance();
+    }
+    f().then((_) {
+      setState(() {
+        isSwitched = prefs.getString('theme') == '0' ? false : true;
+      });
+    });
     // intialize the controllers
     mapController = MapController();
     statefulMapController = StatefulMapController(mapController: mapController);
 
     // wait for the controller to be ready before using it
-    statefulMapController.onReady.then((_) => print("The map controller is ready"));
+    statefulMapController.onReady.then((_) =>
+        print("The map controller is ready"));
 
     // statefulMapController.changeFeed.transform(streamTransformer);
     /// [Important] listen to the changefeed to rebuild the map on changes:
     /// this will rebuild the map when for example addMarker or any method
     /// that mutates the map assets is called
-    sub = statefulMapController.changeFeed.listen((change)
-    {
+    statefulMapController.changeFeed.listen((event) {
       print(statefulMapController.zoom.toString());
+    });
+    sub = statefulMapController.changeFeed.listen((change) {
       setState(() {});
     });
     super.initState();
@@ -88,7 +97,7 @@ class _HomeScreen extends State<MapPage> {
 
 
   Future<Null> _selectDate(BuildContext context, String dateVar) async {
-    final DateTime picked = await DatePicker.showDateTimePicker( context,
+    final DateTime picked = await DatePicker.showDateTimePicker(context,
         showTitleActions: true,
         locale: LocaleType.ru,
         theme: DatePickerTheme(
@@ -100,7 +109,10 @@ class _HomeScreen extends State<MapPage> {
         currentTime: dateVar == 'from' ? fromDate : toDate,
         minTime: dateVar == 'from' ? DateTime(2020, 8) : fromDate,
         maxTime: dateVar == 'from' ? toDate : DateTime.now());
-    if (picked != null && picked != (dateVar == 'from' ? fromDate : toDate) && (dateVar == 'from' ? picked.millisecondsSinceEpoch <= toDate.millisecondsSinceEpoch : picked.millisecondsSinceEpoch >= fromDate.millisecondsSinceEpoch))
+    if (picked != null && picked != (dateVar == 'from' ? fromDate : toDate) &&
+        (dateVar == 'from' ? picked.millisecondsSinceEpoch <=
+            toDate.millisecondsSinceEpoch : picked.millisecondsSinceEpoch >=
+            fromDate.millisecondsSinceEpoch))
       if (dateVar == 'from') {
         setState(() {
           fromDate = picked;
@@ -126,8 +138,11 @@ class _HomeScreen extends State<MapPage> {
   }
 
 
-  formatTime (DateTime time) {
-    return "${('0'+time.hour.toString()).substring(('0'+time.hour.toString()).length-2)}:${('0'+time.minute.toString()).substring(('0'+time.minute.toString()).length-2)}";
+  formatTime(DateTime time) {
+    return "${('0' + time.hour.toString()).substring(
+        ('0' + time.hour.toString()).length - 2)}:${('0' +
+        time.minute.toString()).substring(
+        ('0' + time.minute.toString()).length - 2)}";
   }
 
 
@@ -135,7 +150,7 @@ class _HomeScreen extends State<MapPage> {
     var carIdName = '';
     var name = '';
     var id = '';
-    if (cars.isNotEmpty&&selected != 0 ) {
+    if (cars.isNotEmpty && selected != 0) {
       carIdName = (cars[cars.indexWhere((element) =>
       element['id'] == selected)]['nomer']);
       name = carIdName.substring(carIdName.indexOf(' '));
@@ -154,53 +169,6 @@ class _HomeScreen extends State<MapPage> {
       return Text(
           carIdName, style: Get.theme.textTheme.headline6);
     }
-
-  }
-
-
-  Future fetchCars() async {
-    final Uri uri = Uri.http(
-        widget.base, '/mishka.pro/bike-gps/', { 'cars': ''});
-    return http.post(uri, body: 'Token=123', headers: widget.headers).then((response) {
-      cars = jsonDecode(response.body)['groups']['cars'];
-      return cars;
-    }).catchError((err) {print(err); return [];});
-  }
-
-
-  Future fetchPath(car, DateTime dateFrom, DateTime dateTo) async {
-    if (cars.isNotEmpty) {
-      int from = (dateFrom.millisecondsSinceEpoch / 1000).floor();
-      int to = (dateTo.millisecondsSinceEpoch / 1000).floor();
-      final Uri uri = Uri.http(
-          widget.base, 'mishka.pro/bike-gps/', { 'track': ''});
-      var body = 'Token=123&OT=' + from.toString() + '&DO=' + to.toString() +
-          '&ID=' + car.toString();
-      print(body);
-      return await http.post(uri, body: body, headers: widget.headers).then((
-          response) {
-        print(response.body);
-        dots = jsonDecode(response.body)['data'];
-        return dots;
-      }).catchError((error) {
-        print(error);
-        return [];
-      });
-    } else {
-
-    }
-  }
-
-
-  void fetchParking(value) {
-    if (cars.isNotEmpty) {
-      final Uri uri = Uri.http(
-          widget.base, 'mishka.pro/bike-gps/', { 'parking': ''});
-      var body = 'Token=123&OT=1615424400&DO=1615425000&ID=' + value.toString();
-      http.post(uri, body: body, headers: widget.headers).then((response) {
-        print(jsonDecode(response.body)['data']);
-      }).catchError((error) => print(error));
-    }
   }
 
 
@@ -217,12 +185,12 @@ class _HomeScreen extends State<MapPage> {
               Text(
                 car['nomer'],
                 style: selected == car['id'] ?
-                  Get.theme.textTheme.headline5.copyWith(
-                      color: Colors.white
-                  ) :
-                  Get.theme.textTheme.headline5.copyWith(
-                      color: Get.theme.primaryColor
-                  ),
+                Get.theme.textTheme.headline5.copyWith(
+                    color: Colors.white
+                ) :
+                Get.theme.textTheme.headline5.copyWith(
+                    color: Get.theme.primaryColor
+                ),
               ),
               // Text((selected == e['nomer']).toString()),
             ]),
@@ -247,14 +215,15 @@ class _HomeScreen extends State<MapPage> {
     var _element;
     var _lat;
     var _lon;
-    fetchPath(carName, fromDate, toDate).then((value) =>
-    {
+    ;
+    Func.fetchPath(cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate).then((value) {
+      var prevElement = value[0];
       value.forEach((element) {
         _element = element;
         var lat = element['Lat'];
         var lon = element['Lon'];
         _points.add(LatLng(lat, lon));
-        if (element['id'] % 1 == 0) {
+        if (element['angle'] - prevElement['angle'] > 20) {
           markers.add(Marker(
             width: 40.0,
             height: 40.0,
@@ -263,27 +232,30 @@ class _HomeScreen extends State<MapPage> {
                 Container(
                   child: Transform.rotate(
                     angle: element['angle'] * pi / 180,
-                    child: Icon(
-                      Icons.keyboard_arrow_up_rounded, color: Colors.green,
-                      size: 40,),
+                    child: Image(
+                      image: AssetImage('assets/arrow.png'),
+                      // color: Colors.green,
+                      width: 20,
+                      height: 20,
+                    ),
                   ),
                 ),
             anchorPos: widget.anchorsPosition,
           ));
         }
-      })
-    }).then((_)
-    {
+        prevElement = element;
+      });
+    }).then((_) {
       _lat = _element['Lat'];
       _lon = _element['Lon'];
-      markers[markers.length-1] = Marker(
+      markers[markers.length - 1] = Marker(
         width: 40.0,
         height: 40.0,
         point: LatLng(_lat, _lon),
         builder: (ctx) =>
             Container(
               child: Transform.rotate(
-                angle: 0.0 * pi/180  ,
+                angle: 0.0 * pi / 180,
                 child: Image(
                   image: AssetImage('assets/car.png'), width: 40, height: 40,),
               ),
@@ -294,19 +266,45 @@ class _HomeScreen extends State<MapPage> {
     );
   }
 
+  toggleSwitch(bool v) async {
+    String value = v ? '1' : '0';
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('theme', value);
+    if (value == '0') {
+      Get.changeThemeMode(ThemeMode.dark);
+    } else {
+      Get.changeThemeMode(ThemeMode.light);
+    }
+    setState(() {
+      isSwitched = v;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    fetchCars().then((value) => createCarListWidgets(value));
+    Func.fetchCars().then((value) => createCarListWidgets(value));
 
     return Scaffold(
-      appBar: AppBar(title: Text('Карта')),
-      drawer: buildDrawer(context, route),
+      appBar: AppBar(title: Text('Карта'), actions: <Widget>[
+        Switch(
+          onChanged: (v) => toggleSwitch(v),
+          value: isSwitched,
+          activeColor: Get.theme.buttonTheme.colorScheme.primaryVariant,
+          activeTrackColor: Get.theme.backgroundColor,
+          inactiveThumbColor: Get.theme.buttonTheme.colorScheme.primaryVariant,
+          inactiveTrackColor: Get.theme.backgroundColor,
+        ),
+      ]
+      ),
+      // drawer: buildDrawer(context, route),
       body: SlidingUpPanel(
         backdropEnabled: true,
         header: Container(
           color: Get.theme.backgroundColor,
-          width: MediaQuery.of(context).size.width,
+          width: MediaQuery
+              .of(context)
+              .size
+              .width,
           height: 100.0,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -314,29 +312,43 @@ class _HomeScreen extends State<MapPage> {
             children: [
               TextButton(
                 onPressed: () {
-                  fetchCars().then((value) => createCarListWidgets(value));
+                  Func.fetchCars().then((value) => createCarListWidgets(value));
                 },
                 child: getCarNom(),
               ),
               ElevatedButton(
-                style: ButtonStyle(backgroundColor: MaterialStateProperty.resolveWith(getColor,)),
-                onPressed: () => _selectDate(context, 'from').then((value) { if (selected != 0) setPoints(selected, dots);}),
-                child:Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text("${fromDate.toLocal()}".split(' ')[0], style: Get.theme.textTheme.button,),
-                    Text(formatTime(fromDate), style: Get.theme.textTheme.button,),
-                  ]
+                style: ButtonStyle(
+                    backgroundColor: MaterialStateProperty.resolveWith(
+                      getColor,)),
+                onPressed: () =>
+                    _selectDate(context, 'from').then((value) {
+                      if (selected != 0) setPoints(selected, dots);
+                    }),
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text("${fromDate.toLocal()}".split(' ')[0],
+                        style: Get.theme.textTheme.button,),
+                      Text(formatTime(fromDate),
+                        style: Get.theme.textTheme.button,),
+                    ]
                 ),
               ),
               ElevatedButton(
-                style: ButtonStyle(backgroundColor: MaterialStateProperty.resolveWith(getColor,)),
-                onPressed: () => _selectDate(context, 'to').then((value)  { if (selected != 0) setPoints(selected, dots);}),
-                child:Column(
+                style: ButtonStyle(
+                    backgroundColor: MaterialStateProperty.resolveWith(
+                      getColor,)),
+                onPressed: () =>
+                    _selectDate(context, 'to').then((value) {
+                      if (selected != 0) setPoints(selected, dots);
+                    }),
+                child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text("${toDate.toLocal()}".split(' ')[0], style: Get.theme.textTheme.button,),
-                      Text(formatTime(toDate), style: Get.theme.textTheme.button,),
+                      Text("${toDate.toLocal()}".split(' ')[0],
+                        style: Get.theme.textTheme.button,),
+                      Text(
+                        formatTime(toDate), style: Get.theme.textTheme.button,),
                     ]
                 ),
               ),
@@ -353,55 +365,55 @@ class _HomeScreen extends State<MapPage> {
         ),
         body: Stack(
           children: [
-          Column(
-            children: [
-              Flexible(
-                child: FlutterMap(
-                  mapController: mapController,
-                  options: MapOptions(
-                    center: LatLng(43.26, 76.94),
-                    zoom: 12.0,
-                    maxZoom: 18,
-                    minZoom: 10,
-                    rotation: 0,
-                    // plugins: [
-                    //   ScaleLayerPlugin(),
-                    // ],
-                  ),
-                  layers: [
-                    TileLayerOptions(
-                      urlTemplate: urlMapTiles,
-                      subdomains: ['a', 'b', 'c'],
-                      additionalOptions: {
-                        'accessToken': Token,
-                        'id': 'mapbox.streets',
-                      },
+            Column(
+              children: [
+                Flexible(
+                  child: FlutterMap(
+                    mapController: mapController,
+                    options: MapOptions(
+                      center: LatLng(43.26, 76.94),
+                      zoom: 12.0,
+                      maxZoom: 18,
+                      minZoom: 10,
+                      rotation: 0,
+                      // plugins: [
+                      //   ScaleLayerPlugin(),
+                      // ],
                     ),
-                    PolylineLayerOptions(
-                      polylines: [
-                        Polyline(
+                    layers: [
+                      TileLayerOptions(
+                        urlTemplate: urlMapTiles,
+                        subdomains: ['a', 'b', 'c'],
+                        additionalOptions: {
+                          'accessToken': Token,
+                          'id': 'mapbox.streets',
+                        },
+                      ),
+                      PolylineLayerOptions(
+                        polylines: [
+                          Polyline(
+                              points: _points,
+                              strokeWidth: 10,
+                              color: Colors.white
+                          ),
+                          Polyline(
                             points: _points,
-                            strokeWidth: 10,
-                            color: Colors.white
-                        ),
-                        Polyline(
-                          points: _points,
-                          strokeWidth: 4.0,
-                          color:  Color.fromRGBO(59, 255, 00, 1),
-                        ),
-                      ],
-                    ),
-                    MarkerLayerOptions(markers: markers),
-                  ],
+                            strokeWidth: 4.0,
+                            color: Color.fromRGBO(59, 255, 00, 1),
+                          ),
+                        ],
+                      ),
+                      MarkerLayerOptions(markers: markers),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
             // Positioned(
             //     top: 15.0,
             //     right: 15.0,
             //     child: TileLayersBar(controller: statefulMapController)),
-          Positioned(
+            Positioned(
               right: 5,
               top: 5,
               child: Container(
@@ -410,19 +422,22 @@ class _HomeScreen extends State<MapPage> {
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
-                  icon: Icon(Icons.layers),
-                  color: Colors.black,
-                  onPressed: () {
-                    if (urlMapTiles != 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}')
-                      setState(() {
-                        urlMapTiles = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-                      });
-                    else
-                      setState(() {
-                        urlMapTiles = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png?access_token={accessToken}';
-                      }
-                    );
-                  }
+                    icon: Icon(Icons.layers),
+                    color: Colors.black,
+                    onPressed: () {
+                      if (urlMapTiles !=
+                          MapA)
+                        setState(() {
+                          urlMapTiles =
+                          MapA;
+                        });
+                      else
+                        setState(() {
+                          urlMapTiles =
+                          MapB;
+                        }
+                        );
+                    }
                 ),
               ),
             ),

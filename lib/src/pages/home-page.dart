@@ -8,6 +8,18 @@ class MyHomePage extends StatefulWidget {
   static const String route = '/home_page';
   MyHomePage({Key key, this.title = 'Home'}) : super(key: key);
 
+  static toggleSwitch(bool v) async {
+    String value = v ? '1' : '0';
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('theme', value);
+    if (value == '0') {
+      Get.changeThemeMode(ThemeMode.dark);
+    } else {
+      Get.changeThemeMode(ThemeMode.light);
+    }
+    return v;
+  }
+
   final String title;
 
   @override
@@ -17,28 +29,18 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   static const String route = '/home_page';
   bool isSwitched = false;
-
-  void toggleSwitch(bool v) async {
-    String value;
-    if (v) {
-      value = '1';
-    } else {
-      value = '0';
+  void initState()  {
+    SharedPreferences prefs;
+    f() async {
+      prefs = await SharedPreferences.getInstance();
     }
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('theme', value);
-    if (value == '0') {
-      Get.changeThemeMode(ThemeMode.dark);
-    } else if (value == '1') {
-      Get.changeThemeMode(ThemeMode.light);
-    } else {
-      Get.changeThemeMode(ThemeMode.values.last);
-    }
-    setState(() {
-      isSwitched = v;
+    f().then((_) {
+      setState(() {
+        isSwitched = prefs.getString('theme') == '0' ? false : true;
+      });
     });
+    super.initState();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +60,11 @@ class _MyHomePageState extends State<MyHomePage> {
           Center(
             child:
             Switch(
-              onChanged: toggleSwitch,
+              onChanged: (v) {
+                setState(() {
+                  isSwitched = MyHomePage.toggleSwitch(v);
+                });
+              },
               value: isSwitched,
               activeColor: Get.theme.primaryColor,
               activeTrackColor: Get.theme.backgroundColor,
