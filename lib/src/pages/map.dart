@@ -48,6 +48,7 @@ class MapPage extends StatefulWidget {
 class _HomeScreen extends State<MapPage> {
   static const String route = '/';
   List<LatLng> _points = [];
+  List<Marker> parkingMarks = [];
   List<Marker> markers = <Marker>[];
   int selected = 0;
   String urlMapTiles = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
@@ -215,18 +216,39 @@ class _HomeScreen extends State<MapPage> {
     var _element;
     var _lat;
     var _lon;
-    ;
-    Func.fetchPath(cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate).then((value) {
-      var prevElement = value[0];
+    Func.fetchParking(cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate).then((value) {
+      value.forEach((element) {
+        double lat = element['Lat'];
+        double lon = element['Lon'];
+        print(value);
+        markers.add(Marker(
+          width: 20.0,
+          height: 20.0,
+          point: LatLng(lat, lon),
+          builder: (ctx) =>
+              Container(
+                  child: Image(
+                    image: AssetImage('assets/parked.png'),
+                    // color: Colors.green,
+                    width: 10,
+                    height: 10,
+                  ),
+                ),
+          anchorPos: widget.anchorsPosition,
+        ));
+      });
+    });
+    Func.fetchPath(cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate).then((List value) {
+      var prevElement = 0;
       value.forEach((element) {
         _element = element;
         var lat = element['Lat'];
         var lon = element['Lon'];
         _points.add(LatLng(lat, lon));
-        if (element['angle'] - prevElement['angle'] > 20) {
+        if ((element['angle'] - prevElement).abs() > 30) {
           markers.add(Marker(
-            width: 40.0,
-            height: 40.0,
+            width: 20.0,
+            height: 20.0,
             point: LatLng(lat, lon),
             builder: (ctx) =>
                 Container(
@@ -235,35 +257,39 @@ class _HomeScreen extends State<MapPage> {
                     child: Image(
                       image: AssetImage('assets/arrow.png'),
                       // color: Colors.green,
-                      width: 20,
-                      height: 20,
+                      width: 10,
+                      height: 10,
                     ),
                   ),
                 ),
             anchorPos: widget.anchorsPosition,
           ));
+          prevElement = element['angle'];
         }
-        prevElement = element;
       });
-    }).then((_) {
-      _lat = _element['Lat'];
-      _lon = _element['Lon'];
-      markers[markers.length - 1] = Marker(
-        width: 40.0,
-        height: 40.0,
-        point: LatLng(_lat, _lon),
-        builder: (ctx) =>
-            Container(
-              child: Transform.rotate(
-                angle: 0.0 * pi / 180,
-                child: Image(
-                  image: AssetImage('assets/car.png'), width: 40, height: 40,),
+      return value;
+    }).then((v) {
+      if (v.length > 0) {
+        _lat = _element['Lat'];
+        _lon = _element['Lon'];
+        markers[markers.length - 1] = Marker(
+          width: 40.0,
+          height: 40.0,
+          point: LatLng(_lat, _lon),
+          builder: (ctx) =>
+              Container(
+                child: Transform.rotate(
+                  angle: 0.0 * pi / 180,
+                  child: Image(
+                    image: AssetImage('assets/car.png'),
+                    width: 40,
+                    height: 40,),
+                ),
               ),
-            ),
-        anchorPos: AnchorPos.align(AnchorAlign.top),
-      );
-    }
-    );
+          anchorPos: AnchorPos.align(AnchorAlign.top),
+        );
+      }
+    });
   }
 
   toggleSwitch(bool v) async {
@@ -283,6 +309,7 @@ class _HomeScreen extends State<MapPage> {
   @override
   Widget build(BuildContext context) {
     Func.fetchCars().then((value) => createCarListWidgets(value));
+
 
     return Scaffold(
       appBar: AppBar(title: Text('Карта'), actions: <Widget>[
@@ -403,7 +430,7 @@ class _HomeScreen extends State<MapPage> {
                           ),
                         ],
                       ),
-                      MarkerLayerOptions(markers: markers),
+                      MarkerLayerOptions(markers: [...markers, ...parkingMarks]),
                     ],
                   ),
                 ),

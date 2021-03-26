@@ -23,9 +23,9 @@ class Func {
     });
   }
 
-  static Future fetchPath({String base = _base, Map<String, String> headers = _headers, cars, car, DateTime dateFrom, DateTime dateTo}) async {
+  static Future<List> fetchPath({String base = _base, Map<String, String> headers = _headers, cars, car, DateTime dateFrom, DateTime dateTo}) async {
     var dots;
-    if (cars.isNotEmpty) {
+    // if (cars.isNotEmpty) {
       int from = (dateFrom.millisecondsSinceEpoch / 1000).floor();
       int to = (dateTo.millisecondsSinceEpoch / 1000).floor();
       final Uri uri = Uri.http(
@@ -35,28 +35,31 @@ class Func {
       print(body);
       return await http.post(uri, body: body, headers: headers).then((
           response) {
-        print(response.body);
+        // print(response.body);
         dots = jsonDecode(response.body)['data'];
+        print(dots);
         return dots;
       }).catchError((error) {
         print(error);
-        return [];
       });
-    } else {
-
-    }
+    // } else {
+    //   return [];
+    // }
   }
 
 
-  static void fetchParking({String base = _base, Map<String, String> headers = _headers, cars, value}) {
-    if (cars.isNotEmpty) {
+  static Future<List> fetchParking({String base = _base, Map<String, String> headers = _headers, cars, car, DateTime dateFrom, DateTime dateTo}) async {
+    // if (cars.isNotEmpty) {
+      int from = (dateFrom.millisecondsSinceEpoch / 1000).floor();
+      int to = (dateTo.millisecondsSinceEpoch / 1000).floor();
       final Uri uri = Uri.http(
           base, 'mishka.pro/bike-gps/', { 'parking': ''});
-      var body = 'Token=123&OT=1615424400&DO=1615425000&ID=' + value.toString();
-      http.post(uri, body: body, headers: headers).then((response) {
+      var body = 'Token=123&OT=' + from.toString() + '&DO=' + to.toString() +'&ID=' + car.toString();
+      return await http.post(uri, body: body, headers: headers).then((response) {
         print(jsonDecode(response.body)['data']);
+        return jsonDecode(response.body)['data'];
       }).catchError((error) => print(error));
-    }
+    // }
+    // return [];
   }
-
 }
