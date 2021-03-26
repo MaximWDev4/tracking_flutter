@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 class Func {
 
   static const _base = '192.168.0.50:8080';
+  // static const _base = '185.97.113.59:8101';
   static const _headers = {
     HttpHeaders
         .contentTypeHeader: 'application/x-www-form-urlencoded; charset=UTF-8'
@@ -15,6 +16,7 @@ class Func {
     final Uri uri = Uri.http(
         base, '/mishka.pro/bike-gps/', { 'cars': ''});
     return http.post(uri, body: 'Token=123', headers: headers).then((response) {
+      print(response);
       cars = jsonDecode(response.body)['groups']['cars'];
       return cars;
     }).catchError((err) {
@@ -61,5 +63,11 @@ class Func {
       }).catchError((error) => print(error));
     // }
     // return [];
+  }
+
+  static String formatToLocalDT(int date, int dur) {
+    String from =  DateTime.fromMillisecondsSinceEpoch(date * 1000).toLocal().toString();
+    String to = DateTime.fromMillisecondsSinceEpoch((date + dur) * 1000).toLocal().toString();
+    return 'С ' + from + '\nДо' + to;
   }
 }

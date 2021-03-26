@@ -29,10 +29,10 @@ class MyApp extends StatelessWidget {
       // NOTE: Optional - use themeMode to specify the startup theme
       themeMode: theme == '0' ? ThemeMode.dark : ThemeMode.light,
       home: MapPage(),
-      routes: <String, WidgetBuilder>{
-        MapControllerPage.route: (context) => MapControllerPage(),
-        MyHomePage.route: (context) => MyHomePage(),
-      },
+      // routes: <String, WidgetBuilder>{
+      //   MapControllerPage.route: (context) => MapControllerPage(),
+      //   MyHomePage.route: (context) => MyHomePage(),
+      // },
     );
   }
 }

@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'dart:async';
 import 'package:flutter_datetime_picker/flutter_datetime_picker.dart';
@@ -42,13 +40,12 @@ class MapPage extends StatefulWidget {
   final anchorsPosition = AnchorPos.align(AnchorAlign.center);
   MapPage({Key key}) : super(key: key);
   @override
-  State<MapPage> createState() => _HomeScreen();
+  State<MapPage> createState() => _MapScreen();
 }
 
-class _HomeScreen extends State<MapPage> {
-  static const String route = '/';
+class _MapScreen extends State<MapPage> {
+  // static const String route = '/';
   List<LatLng> _points = [];
-  List<Marker> parkingMarks = [];
   List<Marker> markers = <Marker>[];
   int selected = 0;
   String urlMapTiles = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
@@ -93,6 +90,7 @@ class _HomeScreen extends State<MapPage> {
     sub = statefulMapController.changeFeed.listen((change) {
       setState(() {});
     });
+    Func.fetchCars().then((value) => createCarListWidgets(value));
     super.initState();
   }
 
@@ -216,36 +214,101 @@ class _HomeScreen extends State<MapPage> {
     var _element;
     var _lat;
     var _lon;
-    Func.fetchParking(cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate).then((value) {
+    // statefulMapController.markers.clear();
+    Func.fetchParking(
+        cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate).then((
+        value) {
       value.forEach((element) {
         double lat = element['Lat'];
         double lon = element['Lon'];
         print(value);
-        markers.add(Marker(
-          width: 20.0,
-          height: 20.0,
-          point: LatLng(lat, lon),
-          builder: (ctx) =>
-              Container(
-                  child: Image(
-                    image: AssetImage('assets/parked.png'),
-                    // color: Colors.green,
-                    width: 10,
-                    height: 10,
-                  ),
-                ),
-          anchorPos: widget.anchorsPosition,
-        ));
+        statefulMapController.addStatefulMarker(
+            name: element['dt'].toString(),
+            statefulMarker: StatefulMarker(
+              width: 40.0,
+              height: 40.0,
+              state: <String, dynamic>{"showText": false},
+              point: LatLng(lat, lon),
+              builder: (BuildContext context, Map<String, dynamic> state) {
+                final markerIcon =
+                    IconButton(
+                        onPressed: () {
+                          return showDialog<void>(
+                              context: context,
+                              barrierDismissible: false, // user must tap button!
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title:  Text('Парковка'),
+                                  content: SingleChildScrollView(
+                                    child: ListBody(
+                                      children: <Widget>[
+                                        Text(Func.formatToLocalDT(element['dt'], element['park'])),
+                                      ],
+                                    ),
+                                  ),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      child: Text('Approve'),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                    ),
+                                  ],
+                                );
+                              }
+                          );
+                        },
+                          // statefulMapController.mutateMarker(
+                          // name: element['dt'].toString(),
+                          // property: "showText",
+                          // value: !(state["showText"] as bool)),
+                        icon:
+                        // Icon(Icons.circle, size: 40,),
+                        Image(image: AssetImage('assets/parked.png'), height: 400, width: 400,),
+                );
+                    // ConstrainedBox(
+                    //     constraints: BoxConstraints.expand(),
+                    //     child: TextButton(
+                    //       onPressed: () =>
+                    //         statefulMapController.mutateMarker(
+                    //         name: element['dt'].toString(),
+                    //         property: "showText",
+                    //         value: !(state["showText"] as bool)),
+                    //       child: Image(image: AssetImage('assets/parked.png'))
+                    //     )
+                    // )
+                // if (state["showText"] == true) {
+                //   w = Column(
+                //       crossAxisAlignment: CrossAxisAlignment.stretch,
+                //       mainAxisAlignment: MainAxisAlignment.center,
+                //       mainAxisSize: MainAxisSize.max,
+                //       children: <Widget>[
+                //         Container(
+                //           color: Colors.white,
+                //               padding: const EdgeInsets.all(5.0),
+                //               child: Text(DateTime.fromMillisecondsSinceEpoch(
+                //                   element['dt'] * 1000).toIso8601String(),
+                //                   textScaleFactor: 1.3)),
+                //         markerIcon,
+                //     ]);
+                // } else {
+                //   w = markerIcon;
+                // }
+                return markerIcon;
+              },
+              anchorAlign: AnchorAlign.center,
+            ));
       });
     });
-    Func.fetchPath(cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate).then((List value) {
-      var prevElement = 0;
+    Func.fetchPath(cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate)
+        .then((List value) {
+      var prevElementAngle = 0;
       value.forEach((element) {
         _element = element;
         var lat = element['Lat'];
         var lon = element['Lon'];
         _points.add(LatLng(lat, lon));
-        if ((element['angle'] - prevElement).abs() > 30) {
+        if ((element['angle'] - prevElementAngle).abs() > 30) {
           markers.add(Marker(
             width: 20.0,
             height: 20.0,
@@ -264,7 +327,7 @@ class _HomeScreen extends State<MapPage> {
                 ),
             anchorPos: widget.anchorsPosition,
           ));
-          prevElement = element['angle'];
+          prevElementAngle = element['angle'];
         }
       });
       return value;
@@ -276,16 +339,18 @@ class _HomeScreen extends State<MapPage> {
           width: 40.0,
           height: 40.0,
           point: LatLng(_lat, _lon),
-          builder: (ctx) =>
-              Container(
-                child: Transform.rotate(
-                  angle: 0.0 * pi / 180,
-                  child: Image(
-                    image: AssetImage('assets/car.png'),
-                    width: 40,
-                    height: 40,),
-                ),
+          builder: (ctx) {
+            context.theme;
+            return Container(
+              child: Transform.rotate(
+                angle: 0.0 * pi / 180,
+                child: Image(
+                  image: AssetImage('assets/car.png'),
+                  width: 40,
+                  height: 40,),
               ),
+            );
+          },
           anchorPos: AnchorPos.align(AnchorAlign.top),
         );
       }
@@ -308,9 +373,7 @@ class _HomeScreen extends State<MapPage> {
 
   @override
   Widget build(BuildContext context) {
-    Func.fetchCars().then((value) => createCarListWidgets(value));
-
-
+    context.theme;
     return Scaffold(
       appBar: AppBar(title: Text('Карта'), actions: <Widget>[
         Switch(
@@ -372,7 +435,7 @@ class _HomeScreen extends State<MapPage> {
                 child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text("${toDate.toLocal()}".split(' ')[0],
+                      Text(toDate.toLocal().toString().split(' ')[0],
                         style: Get.theme.textTheme.button,),
                       Text(
                         formatTime(toDate), style: Get.theme.textTheme.button,),
@@ -387,7 +450,7 @@ class _HomeScreen extends State<MapPage> {
             padding: EdgeInsets.fromLTRB(0, 100, 0, 0),
             child:
             ListView(
-                children: carListWidgets
+              children: carListWidgets
             )
         ),
         body: Stack(
@@ -430,7 +493,8 @@ class _HomeScreen extends State<MapPage> {
                           ),
                         ],
                       ),
-                      MarkerLayerOptions(markers: [...markers, ...parkingMarks]),
+                      MarkerLayerOptions(markers: markers, key: Key('1')),
+                      MarkerLayerOptions(markers: statefulMapController.markers, key: Key('2')),
                     ],
                   ),
                 ),
@@ -472,5 +536,10 @@ class _HomeScreen extends State<MapPage> {
         ),
       ),
     );
+  }
+  @override
+  void dispose() {
+    sub.cancel();
+    super.dispose();
   }
 }
