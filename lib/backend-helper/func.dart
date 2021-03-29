@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 
 class Func {
@@ -66,8 +68,48 @@ class Func {
   }
 
   static String formatToLocalDT(int date, int dur) {
-    String from =  DateTime.fromMillisecondsSinceEpoch(date * 1000).toLocal().toString();
-    String to = DateTime.fromMillisecondsSinceEpoch((date + dur) * 1000).toLocal().toString();
-    return 'С ' + from + '\nДо' + to;
+    const months_name = [
+      'января', 'февраля', 'марта',
+      'апреля', 'мая', 'июня',
+      'июля', 'августа', 'сентября',
+      'октября', 'ноября', 'декабря'
+    ];
+    DateTime fromDT =  DateTime.fromMillisecondsSinceEpoch(date * 1000);
+    String fromStr = fromDT.hour.toString() + ':' + fromDT.minute.toString() + ', ' + fromDT.day.toString() + ' ' + months_name[fromDT.month-1];
+    DateTime toDT = DateTime.fromMillisecondsSinceEpoch((date + dur) * 1000);
+    String toStr =  toDT.hour.toString() + ':' + toDT.minute.toString() + ', ' + toDT.day.toString() + ' ' + months_name[toDT.month-1];
+    return 'С ' + fromStr + '\nДо ' + toStr;
+  }
+
+  static Widget getCarNom(List cars, int selected) {
+    var carIdName = '';
+    var name = '';
+    var id = '';
+    if (cars.isNotEmpty && selected != 0) {
+      carIdName = (cars[cars.indexWhere((element) =>
+      element['id'] == selected)]['nomer']);
+      name = carIdName.substring(carIdName.indexOf(' '));
+      id = carIdName.substring(0, carIdName.indexOf(' '));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(id, style: Get.theme.textTheme.headline6),
+            Text(name, style: Get.theme.textTheme.headline6)
+          ],
+        ),
+      );
+    } else {
+      carIdName = 'Выбрать технику';
+      return Text(
+          carIdName, style: Get.theme.textTheme.headline6);
+    }
+  }
+
+  static formatTime(DateTime time) {
+    return "${('0' + time.hour.toString()).substring(
+        ('0' + time.hour.toString()).length - 2)}:${('0' +
+        time.minute.toString()).substring(
+        ('0' + time.minute.toString()).length - 2)}";
   }
 }

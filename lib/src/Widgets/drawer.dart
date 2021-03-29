@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../pages/home-page.dart';
 import '../pages/map.dart';
 
-Drawer buildDrawer(BuildContext context, String currentRoute) {
+
+
+Drawer buildDrawer(BuildContext context, List currentMarkers, void callback(a)) {
   return Drawer(
     child: ListView(
       children: <Widget>[
@@ -13,18 +14,17 @@ Drawer buildDrawer(BuildContext context, String currentRoute) {
           ),
         ),
         ListTile(
-          title: const Text('Карта'),
-          selected: currentRoute == MapPage.route,
-          onTap: () {
-            Navigator.pushReplacementNamed(context, MapPage.route);
+          title: const Text('Парковки за период'),
+          selected: currentMarkers.indexOf(markers_enum.park) > -1,
+          onTap: () async {
+            callback(markers_enum.park);
           },
         ),
         ListTile(
-          title: const Text('Настройки'),
-          selected: currentRoute == MyHomePage.route,
+          title: const Text('Маршрут за период'),
+          selected:  currentMarkers.indexOf(markers_enum.track) > 1,
           onTap: () {
-            Navigator.pushReplacementNamed(
-                context, MyHomePage.route);
+            callback(markers_enum.track);
           },
         ),
       ],

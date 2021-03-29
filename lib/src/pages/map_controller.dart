@@ -64,7 +64,7 @@ class MapControllerPageState extends State<MapControllerPage> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(title: Text('MapController')),
-      drawer: buildDrawer(context, MapControllerPage.route),
+      // drawer: buildDrawer(context, MapControllerPage.route),
       body: Padding(
         padding: EdgeInsets.all(8.0),
         child: Column(
