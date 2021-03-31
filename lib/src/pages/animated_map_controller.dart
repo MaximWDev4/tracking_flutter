@@ -106,7 +106,7 @@ class AnimatedMapControllerPageState extends State<AnimatedMapControllerPage>
 
     return Scaffold(
       appBar: AppBar(title: Text('Animated MapController')),
-      drawer: buildDrawer(context, AnimatedMapControllerPage.route),
+      // drawer: buildDrawer(context, AnimatedMapControllerPage.route,),
       body: Padding(
         padding: EdgeInsets.all(8.0),
         child: Column(

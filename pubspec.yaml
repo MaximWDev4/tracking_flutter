@@ -33,6 +33,11 @@ dependencies:
   flutter_datetime_picker: ^1.5.0
   shared_preferences: 2.0.5
   get: any
+  another_flushbar: ^1.10.17
+  font_awesome_flutter: ^9.0.0
+  provider: ^5.0.0
+  transformer_page_view: ^0.1.6
+#  flutter_login: 1.1.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -59,6 +64,7 @@ flutter:
     - assets/car.png
     - assets/arrow.png
     - assets/parked.png
+    - assets/find.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

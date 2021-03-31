@@ -27,7 +27,7 @@ enum markers_enum {
 }
 
 class MapPage extends StatefulWidget {
-  static const String route = '/';
+  static const String route = '/map';
   final anchorsPosition = AnchorPos.align(AnchorAlign.center);
   MapPage({Key key}) : super(key: key);
   @override
@@ -42,8 +42,8 @@ class _MapScreen extends State<MapPage> {
   List<markers_enum> currentMarkers = [markers_enum.park, markers_enum.track, markers_enum.heading];
   ValueNotifier<int> selected = ValueNotifier(0);
   String urlMapTiles = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-  DateTime fromDate = DateTime.now().subtract(Duration(hours: 4));
-  DateTime toDate = DateTime.now();
+  DateTime fromDate = DateTime.now().subtract(Duration(hours: 4)).toLocal();
+  DateTime toDate = DateTime.now().toLocal();
   List<Widget> carListWidgets = [];
   List cars = [];
   List<dynamic> dots = [];
@@ -64,6 +64,15 @@ class _MapScreen extends State<MapPage> {
       setState(() {
         isSwitched = prefs.getString('theme') == '0' ? false : true;
         // currentMarkers = prefs.getString('drawable_markers').split(',');
+        if (!prefs.getBool('drawable_markers_park',)){
+          currentMarkers.remove(markers_enum.park);
+        }
+        if (!prefs.getBool('drawable_markers_track',)){
+          currentMarkers.remove(markers_enum.track);
+        }
+        if (!prefs.getBool('drawable_markers_heading',)){
+          currentMarkers.remove(markers_enum.heading);
+        }
       });
     });
     // intialize the controllers
@@ -71,16 +80,13 @@ class _MapScreen extends State<MapPage> {
     mapController = MapController();
     statefulMapController = StatefulMapController(mapController: mapController);
 
-    statefulMapController.onReady.then((_) =>
-        print("The map controller is ready"));
-
-    statefulMapController.changeFeed.listen((event) {
-      print(statefulMapController.zoom.toString());
-    });
     sub = statefulMapController.changeFeed.listen((change) {
       setState(() {});
     });
-    Func.fetchCars().then((value) => createCarListWidgets(value));
+    Func.fetchCars().then((value) {
+      createCarListWidgets(value);
+      cars = value;
+    });
     super.initState();
   }
 
@@ -95,9 +101,8 @@ class _MapScreen extends State<MapPage> {
             doneStyle: Get.textTheme.headline5,
             cancelStyle: Get.textTheme.headline5),
         currentTime: dateVar == 'from' ? fromDate : toDate,
-        minTime: dateVar == 'from' ? DateTime(2020, 8) : fromDate,
-        maxTime: dateVar == 'from' ? toDate : DateTime.now().add(
-            Duration(hours: 6)));
+        minTime: dateVar == 'from' ? DateTime(2020, 8).toLocal() : fromDate,
+        maxTime: dateVar == 'from' ? toDate : DateTime.now().toLocal());
     if (picked != null && picked != (dateVar == 'from' ? fromDate : toDate) &&
         (dateVar == 'from' ? picked.millisecondsSinceEpoch <=
             toDate.millisecondsSinceEpoch : picked.millisecondsSinceEpoch >=
@@ -147,6 +152,7 @@ class _MapScreen extends State<MapPage> {
           ValueListenableBuilder<int>(
               valueListenable: selected,
               builder: (context, value, _) {
+                context.theme;
                 return ListTile(
                   key: Key(car['id'].toString()),
                   selected: value == car['id'],
@@ -193,7 +199,9 @@ class _MapScreen extends State<MapPage> {
           currentMarkers = currentMarkers;
         });
       }
-      await prefs.setString('drawable_markers', currentMarkers.join(','));
+      await prefs.setBool('drawable_markers_park', currentMarkers.contains(markers_enum.park));
+      await prefs.setBool('drawable_markers_track', currentMarkers.contains(markers_enum.track));
+      await prefs.setBool('drawable_markers_heading', currentMarkers.contains(markers_enum.heading));
     }
     parkingMarkers = [];
     _points = [];
@@ -318,7 +326,7 @@ class _MapScreen extends State<MapPage> {
           children: <Widget>[
             const DrawerHeader(
               child: const Center(
-                child: const Text('Выбор Отображаемых Меток'),
+                child: const Text('Выбор отображаемых меток'),
               ),
             ),
             ListTile(
@@ -369,12 +377,7 @@ class _MapScreen extends State<MapPage> {
                     panelController.open();
                   }
                 },
-                child: ValueListenableBuilder<int>(
-                    valueListenable: selected,
-                    builder: (context, value, _) {
-                      return Func.getCarNom(cars, value);
-                    }
-                ),
+                child: Func.getCarNom(cars, selected.value),
               ),
               ElevatedButton(
                 style: ButtonStyle(
@@ -418,8 +421,31 @@ class _MapScreen extends State<MapPage> {
         panel:
         Padding(
             padding: EdgeInsets.fromLTRB(0, 100, 0, 0),
-            child:ListView(
-                  children: carListWidgets
+            child:  carListWidgets.isEmpty ?
+            Container(
+                child:
+                Center(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.wifi_off_rounded, color: Colors.black, size: 80,),
+                      Text('Проверьте интернет соединение',
+                        style: Get.textTheme.headline4.copyWith(color: Colors.black, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                      ElevatedButton(onPressed: () =>
+                          Func.fetchCars().then((value) {
+                            createCarListWidgets(value);
+                            cars = value;
+                          }),
+                          child: Text(
+                              'Повторить попытку',
+                              style: Get.textTheme.bodyText1.copyWith(fontSize: 20, color: Colors.white))),
+                    ]),
+                )
+            ) : ListView(
+                  children: carListWidgets,
             ),
         ),
         body: Stack(
@@ -439,9 +465,6 @@ class _MapScreen extends State<MapPage> {
                       onTap: (_) =>
                           _popupLayerController
                               .hidePopup(),
-                      // plugins: [
-                      //   ScaleLayerPlugin(),
-                      // ],
                     ),
                     layers: [
                       TileLayerOptions(
@@ -481,17 +504,10 @@ class _MapScreen extends State<MapPage> {
                       ),
                       // MarkerLayerOptions(markers: parkingMarkers, key: Key('2')),
                     ],
-                    // nonRotatedLayers: [
-                    //   MarkerLayerOptions(markers: parkingMarkers, key: Key('2') ),
-                    // ],
                   ),
                 ),
               ],
             ),
-            // Positioned(
-            //     top: 15.0,
-            //     right: 15.0,
-            //     child: TileLayersBar(controller: statefulMapController)),
             Positioned(
               right: 5,
               top: 5,
@@ -541,12 +557,25 @@ class _MapScreen extends State<MapPage> {
                         color: Colors.white,
                         shape: BoxShape.circle,
                       ),
-                      child: TextButton(
-                          child: Text('-',
-                            style: Get.textTheme.headline5.copyWith(
-                                color: Colors.black),),
+                      child: IconButton(
+                          icon: Icon(Icons.remove),
+                          color: Colors.black,
                           onPressed: () {
                             statefulMapController.zoomOut();
+                          }
+                      ),
+                    ),
+                    Container(
+                      margin: EdgeInsets.fromLTRB(0, 5, 0, 0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                          icon: Icon(Icons.compass_calibration_rounded),
+                          color: Colors.black,
+                          onPressed: () {
+                            mapController.rotate(0);
                           }
                       ),
                     ),

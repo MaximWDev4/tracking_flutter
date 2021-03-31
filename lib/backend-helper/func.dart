@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 
+extension E on String {
+  String lastChars(int n) => substring(length - n);
+}
+
 class Func {
 
   static const _base = '192.168.0.50:8080';
@@ -18,7 +22,6 @@ class Func {
     final Uri uri = Uri.http(
         base, '/mishka.pro/bike-gps/', { 'cars': ''});
     return http.post(uri, body: 'Token=123', headers: headers).then((response) {
-      print(response);
       cars = jsonDecode(response.body)['groups']['cars'];
       return cars;
     }).catchError((err) {
@@ -36,12 +39,9 @@ class Func {
           base, 'mishka.pro/bike-gps/', { 'track': ''});
       var body = 'Token=123&OT=' + from.toString() + '&DO=' + to.toString() +
           '&ID=' + car.toString();
-      print(body);
       return await http.post(uri, body: body, headers: headers).then((
           response) {
-        // print(response.body);
         dots = jsonDecode(response.body)['data'];
-        print(dots);
         return dots;
       }).catchError((error) {
         print(error);
@@ -60,7 +60,6 @@ class Func {
           base, 'mishka.pro/bike-gps/', { 'parking': ''});
       var body = 'Token=123&OT=' + from.toString() + '&DO=' + to.toString() +'&ID=' + car.toString();
       return await http.post(uri, body: body, headers: headers).then((response) {
-        print(jsonDecode(response.body)['data']);
         return jsonDecode(response.body)['data'];
       }).catchError((error) => print(error));
     // }
@@ -75,9 +74,9 @@ class Func {
       'октября', 'ноября', 'декабря'
     ];
     DateTime fromDT =  DateTime.fromMillisecondsSinceEpoch(date * 1000);
-    String fromStr = fromDT.hour.toString() + ':' + fromDT.minute.toString() + ', ' + fromDT.day.toString() + ' ' + months_name[fromDT.month-1];
+    String fromStr = ('0' + fromDT.hour.toString()).lastChars(2) + ':' + ('0' + fromDT.minute.toString()).lastChars(2) + ', ' + fromDT.day.toString() + ' ' + months_name[fromDT.month-1];
     DateTime toDT = DateTime.fromMillisecondsSinceEpoch((date + dur) * 1000);
-    String toStr =  toDT.hour.toString() + ':' + toDT.minute.toString() + ', ' + toDT.day.toString() + ' ' + months_name[toDT.month-1];
+    String toStr =  ('0' + toDT.hour.toString()).lastChars(2) + ':' + ('0' + toDT.minute.toString()).lastChars(2) + ', ' + toDT.day.toString() + ' ' + months_name[toDT.month-1];
     return 'С ' + fromStr + '\nДо ' + toStr;
   }
 
