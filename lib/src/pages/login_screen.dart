@@ -1,33 +1,40 @@
 import 'package:flutter/scheduler.dart' show timeDilation;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tracking_flutter/backend-helper/func.dart';
 import '../Widgets/login_screen/flutter_login.dart';
 import 'package:tracking_flutter/src/pages/map.dart';
 import '../custom_route.dart';
-import '../users.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   static const routeName = '/auth';
 
+  @override
+  State<StatefulWidget> createState() {
+    return LoginScreenState();
+  }
+}
+
+class LoginScreenState extends State<LoginScreen> {
+  SharedPreferences prefs;
   Duration get loginTime => Duration(milliseconds: timeDilation.ceil() * 2250);
 
+  @override
   Future<String> _loginUser(LoginData data) {
+    f() async{
+      prefs = await SharedPreferences.getInstance();
+    }
+    f();
     return Future.delayed(loginTime).then((_) {
-      if (!mockUsers.containsKey(data.name)) {
-        return 'Username not exists';
-      }
-      if (mockUsers[data.name] != data.password) {
-        return 'Password does not match';
-      }
-      return null;
-    });
-  }
-
-  Future<String> _recoverPassword(String name) {
-    return Future.delayed(loginTime).then((_) {
-      if (!mockUsers.containsKey(name)) {
-        return 'Username not exists';
-      }
-      return null;
+      return Func.logIn(pw: data.password, un: data.name);
+      // if (!mockUsers.containsKey(data.name)) {
+      //   return 'Username not exists';
+      // }
+      // if (mockUsers[data.name] != data.password) {
+      //   return 'Password does not match';
+      // }
+      // prefs.setString('Token', '123');
+      // return null;
     });
   }
 
@@ -162,11 +169,8 @@ class LoginScreen extends StatelessWidget {
           builder: (context) => MapPage(),
         ));
       },
-      onRecoverPassword: (name) {
-        print('Recover password info');
-        print('Name: $name');
-        return _recoverPassword(name);
-        // Show new password dialog
+      onRecoverPassword: (a)  async {
+        return '';
       },
       // showDebugButtons: true,
     );

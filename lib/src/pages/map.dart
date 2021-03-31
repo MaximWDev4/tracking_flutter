@@ -11,6 +11,7 @@ import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 import 'package:map_controller/map_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong/latlong.dart';
+import 'package:tracking_flutter/src/pages/login_screen.dart';
 
 import '../../backend-helper/func.dart';
 import './parking_popup.dart';
@@ -47,6 +48,7 @@ class _MapScreen extends State<MapPage> {
   List<Widget> carListWidgets = [];
   List cars = [];
   List<dynamic> dots = [];
+  SharedPreferences prefs;
 
   PanelController panelController;
   MapController mapController;
@@ -56,24 +58,28 @@ class _MapScreen extends State<MapPage> {
   var isSwitched = false;
 
   void initState() {
-    SharedPreferences prefs;
     f() async {
       prefs = await SharedPreferences.getInstance();
     }
     f().then((_) {
-      setState(() {
-        isSwitched = prefs.getString('theme') == '0' ? false : true;
-        // currentMarkers = prefs.getString('drawable_markers').split(',');
-        if (!prefs.getBool('drawable_markers_park',)){
-          currentMarkers.remove(markers_enum.park);
-        }
-        if (!prefs.getBool('drawable_markers_track',)){
-          currentMarkers.remove(markers_enum.track);
-        }
-        if (!prefs.getBool('drawable_markers_heading',)){
-          currentMarkers.remove(markers_enum.heading);
-        }
-      });
+      var token = prefs.getString('Token');
+      if (token == '') {
+        _logOut();
+      } else {
+        setState(() {
+          isSwitched = prefs.getString('theme') == '0' ? false : true;
+          // currentMarkers = prefs.getString('drawable_markers').split(',');
+          if (!prefs.getBool('drawable_markers_park',)) {
+            currentMarkers.remove(markers_enum.park);
+          }
+          if (!prefs.getBool('drawable_markers_track',)) {
+            currentMarkers.remove(markers_enum.track);
+          }
+          if (!prefs.getBool('drawable_markers_heading',)) {
+            currentMarkers.remove(markers_enum.heading);
+          }
+        });
+      }
     });
     // intialize the controllers
     panelController = new PanelController();
@@ -88,6 +94,14 @@ class _MapScreen extends State<MapPage> {
       cars = value;
     });
     super.initState();
+  }
+
+
+  void _logOut() async {
+    prefs.setString('Token', '');
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(LoginScreen.routeName, (Route<dynamic> route) => false);
+    print('logOut');
   }
 
   Future<Null> _selectDate(BuildContext context, String dateVar) async {
@@ -319,6 +333,8 @@ class _MapScreen extends State<MapPage> {
           inactiveThumbColor: Get.theme.buttonTheme.colorScheme.primaryVariant,
           inactiveTrackColor: Get.theme.backgroundColor,
         ),
+        IconButton(icon: Icon(Icons.exit_to_app_rounded),
+            onPressed: () => _logOut()),
       ]
       ),
       drawer: Drawer(

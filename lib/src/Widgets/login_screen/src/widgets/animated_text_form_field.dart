@@ -220,6 +220,8 @@ class _AnimatedTextFormFieldState extends State<AnimatedTextFormField> {
       enabled: widget.enabled,
       autocorrect: widget.autocorrect,
       autofillHints: widget.autofillHints,
+      // initialValue: 'alex',
+      // autofocus: false,
     );
 
     if (widget.loadingController != null) {
@@ -228,8 +230,8 @@ class _AnimatedTextFormFieldState extends State<AnimatedTextFormField> {
         child: AnimatedBuilder(
           animation: sizeAnimation,
           builder: (context, child) => ConstrainedBox(
-            constraints: BoxConstraints.tightFor(width: sizeAnimation.value),
-            child: child,
+              constraints: BoxConstraints.tightFor(width: sizeAnimation.value,),
+              child: child,
           ),
           child: textField,
         ),
