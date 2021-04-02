@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,8 +12,8 @@ extension E on String {
 
 class Func {
 
-  static const _base = '192.168.0.50:8080';
-  // static const _base = '185.97.113.59:8101';
+  // static const _base = '192.168.0.50:8080';
+  static const _base = '185.97.113.59:8101';
   static get url {
     // return 'mishka.pro/bike-gps/';
     return '/';
@@ -36,10 +37,11 @@ class Func {
       } else {
         return ('some other error: ' + responseJson.status + '\nError Неожиданная ошибка сети');
       }
-    });
+    }).timeout(Duration(milliseconds: timeDilation.ceil() * 10000), onTimeout: () => 'Время запроса истекло!')
+        .catchError((onError) => 'Ошибка!');
   }
 
-  static Future fetchCars({String base = _base, Map<String, String> headers = _headers}) async {
+  static Future<List> fetchCars({String base = _base, Map<String, String> headers = _headers}) async {
     var token = (await pref).getString('Token');
     List cars = [];
     final Uri uri = Uri.http(
@@ -49,8 +51,11 @@ class Func {
       // cars = groups['cars'];
       groups.forEach((group) => cars = [...cars, ...group['cars']]);
       return cars;
+    }).timeout(Duration(milliseconds: timeDilation.ceil() * 10000), onTimeout: () {
+      Get.rawSnackbar(message:'Время запроса истекло!');
+      return [];
     }).catchError((err) {
-      print(err);
+      Get.rawSnackbar(message: err);
       return [];
     });
   }
@@ -69,9 +74,12 @@ class Func {
           response) {
         dots = jsonDecode(response.body)['data'];
         return dots;
-      }).catchError((error) {
-        print(error);
-      });
+      }).timeout(Duration(milliseconds: timeDilation.ceil() * 10000), onTimeout: () {
+            Get.rawSnackbar(message:'Время запроса истекло!');
+            return [];
+          }).catchError((error) {
+              Get.rawSnackbar(message: error);
+          });
     // } else {
     //   return [];
     // }
@@ -88,7 +96,13 @@ class Func {
       var body = 'Token='+ token +'&OT=' + from.toString() + '&DO=' + to.toString() +'&ID=' + car.toString();
       return await http.post(uri, body: body, headers: headers).then((response) {
         return jsonDecode(response.body)['data'];
-      }).catchError((error) => print(error));
+      }).timeout(Duration(milliseconds: timeDilation.ceil() * 10000), onTimeout: () {
+        Get.rawSnackbar(message:'Время запроса истекло!');
+        return [];
+      }).catchError((error) {
+        Get.rawSnackbar(message: error);
+        return [];
+      });
     // }
     // return [];
   }
@@ -120,15 +134,15 @@ class Func {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(id, style: Get.theme.textTheme.headline6),
-            Text(name, style: Get.theme.textTheme.headline6)
+            Text(id, style: Get.theme.textTheme.bodyText1),
+            Text(name, style: Get.theme.textTheme.bodyText1)
           ],
         ),
       );
     } else {
-      carIdName = 'Выбрать технику';
+      carIdName = 'Выбрать\n технику';
       return Text(
-          carIdName, style: Get.theme.textTheme.headline6);
+          carIdName, style: Get.theme.textTheme.bodyText1.copyWith(fontSize: 18));
     }
   }
 

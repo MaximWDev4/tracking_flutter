@@ -1,14 +1,15 @@
 import 'package:flutter/scheduler.dart' show timeDilation;
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tracking_flutter/backend-helper/func.dart';
 import '../Widgets/login_screen/flutter_login.dart';
 import 'package:tracking_flutter/src/pages/map.dart';
 import '../custom_route.dart';
+import 'package:loader_overlay/loader_overlay.dart';
 
 class LoginScreen extends StatefulWidget {
   static const routeName = '/auth';
-
   @override
   State<StatefulWidget> createState() {
     return LoginScreenState();
@@ -18,6 +19,29 @@ class LoginScreen extends StatefulWidget {
 class LoginScreenState extends State<LoginScreen> {
   SharedPreferences prefs;
   Duration get loginTime => Duration(milliseconds: timeDilation.ceil() * 2250);
+  LoginScreenState();
+  @override
+  void initState() {
+    context.showLoaderOverlay();
+    try {
+      Func.logIn(pw: 'alex', un: 'alex')
+          .then((value) {
+        setState(() {
+          context.hideLoaderOverlay();
+        });
+        if (value == null) {
+          Navigator.pushNamedAndRemoveUntil(
+              context, MapPage.route, (route) => false);
+        } else {
+          Get.rawSnackbar(message: value,);
+        }
+      }).catchError((error) => Get.rawSnackbar(message: "Ошибка"));
+    }
+    catch(onError) {
+      Get.rawSnackbar(message: onError);
+    }
+    super.initState();
+  }
 
   @override
   Future<String> _loginUser(LoginData data) {
@@ -25,17 +49,7 @@ class LoginScreenState extends State<LoginScreen> {
       prefs = await SharedPreferences.getInstance();
     }
     f();
-    return Future.delayed(loginTime).then((_) {
       return Func.logIn(pw: data.password, un: data.name);
-      // if (!mockUsers.containsKey(data.name)) {
-      //   return 'Username not exists';
-      // }
-      // if (mockUsers[data.name] != data.password) {
-      //   return 'Password does not match';
-      // }
-      // prefs.setString('Token', '123');
-      // return null;
-    });
   }
 
   @override
@@ -153,15 +167,9 @@ class LoginScreenState extends State<LoginScreen> {
         return null;
       },
       onLogin: (loginData) {
-        print('Login info');
-        print('Name: ${loginData.name}');
-        print('Password: ${loginData.password}');
         return _loginUser(loginData);
       },
       onSignup: (loginData) {
-        print('Signup info');
-        print('Name: ${loginData.name}');
-        print('Password: ${loginData.password}');
         return _loginUser(loginData);
       },
       onSubmitAnimationCompleted: () {

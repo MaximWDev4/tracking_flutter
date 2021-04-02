@@ -571,7 +571,6 @@ class _LoginCardState extends State<_LoginCard> with TickerProviderStateMixin {
 
     return true;
   }
-
   Widget _buildNameField(double width, LoginMessages messages, Auth auth) {
     return AnimatedTextFormField(
       controller: _nameController,
@@ -748,14 +747,16 @@ class _LoginCardState extends State<_LoginCard> with TickerProviderStateMixin {
               top: cardPadding + 10,
             ),
             width: cardWidth,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                _buildNameField(textFieldWidth, messages, auth),
-                SizedBox(height: 20),
-                _buildPasswordField(textFieldWidth, messages, auth),
-                SizedBox(height: 10),
-              ],
+            child: AutofillGroup(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  _buildNameField(textFieldWidth, messages, auth),
+                  SizedBox(height: 20),
+                  _buildPasswordField(textFieldWidth, messages, auth),
+                  SizedBox(height: 10),
+                ],
+              ),
             ),
           ),
           ExpandableContainer(

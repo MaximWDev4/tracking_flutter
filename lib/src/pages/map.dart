@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:async';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_datetime_picker/flutter_datetime_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
@@ -40,7 +41,11 @@ class _MapScreen extends State<MapPage> {
   List<LatLng> _points = [];
   List<Marker> markers = <Marker>[];
   List<Marker> parkingMarkers = [];
-  List<markers_enum> currentMarkers = [markers_enum.park, markers_enum.track, markers_enum.heading];
+  List<markers_enum> currentMarkers = [
+    markers_enum.park,
+    markers_enum.track,
+    markers_enum.heading
+  ];
   ValueNotifier<int> selected = ValueNotifier(0);
   String urlMapTiles = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
   DateTime fromDate = DateTime.now().subtract(Duration(hours: 4)).toLocal();
@@ -57,42 +62,62 @@ class _MapScreen extends State<MapPage> {
 
   var isSwitched = false;
 
+  f() async {
+    prefs = await SharedPreferences.getInstance();
+  }
+
   void initState() {
-    f() async {
-      prefs = await SharedPreferences.getInstance();
-    }
+    // context.showLoaderOverlay();
     f().then((_) {
       var token = prefs.getString('Token');
-      if (token == '') {
+      if (token == '' || token == null) {
+        // context.hideLoaderOverlay();
         _logOut();
       } else {
-        setState(() {
-          isSwitched = prefs.getString('theme') == '0' ? false : true;
-          // currentMarkers = prefs.getString('drawable_markers').split(',');
-          if (!prefs.getBool('drawable_markers_park',)) {
+        var dmp = prefs.getBool('drawable_markers_park',);
+        var dmt = prefs.getBool('drawable_markers_track',);
+        var dmh = prefs.getBool('drawable_markers_heading',);
+        isSwitched = prefs.getString('theme') == '0' ? false : true;
+        // currentMarkers = prefs.getString('drawable_markers').split(',');
+        if (!(dmp ?? true)) {
+          setState(() {
             currentMarkers.remove(markers_enum.park);
-          }
-          if (!prefs.getBool('drawable_markers_track',)) {
+          });
+        } else if (dmp == null) {
+          prefs.setBool('drawable_markers_park', true);
+        }
+        if (!(dmt ?? true)) {
+          setState(() {
             currentMarkers.remove(markers_enum.track);
-          }
-          if (!prefs.getBool('drawable_markers_heading',)) {
+          });
+        } else if (dmt == null) {
+          prefs.setBool('drawable_markers_park', true);
+        }
+        if (!(dmh ?? true)) {
+          setState(() {
             currentMarkers.remove(markers_enum.heading);
-          }
+          });
+        } else if (dmh == null) {
+          prefs.setBool('drawable_markers_park', true);
+        }
+        // context.hideLoaderOverlay();
+        Func.fetchCars().then((value) {
+          setState(() {
+            createCarListWidgets(value);
+            cars = value;
+          });
         });
       }
     });
-    // intialize the controllers
     panelController = new PanelController();
     mapController = MapController();
-    statefulMapController = StatefulMapController(mapController: mapController);
+    statefulMapController =
+        StatefulMapController(mapController: mapController);
 
     sub = statefulMapController.changeFeed.listen((change) {
       setState(() {});
     });
-    Func.fetchCars().then((value) {
-      createCarListWidgets(value);
-      cars = value;
-    });
+    // intialize the controllers
     super.initState();
   }
 
@@ -100,7 +125,8 @@ class _MapScreen extends State<MapPage> {
   void _logOut() async {
     prefs.setString('Token', '');
     Navigator.of(context)
-        .pushNamedAndRemoveUntil(LoginScreen.routeName, (Route<dynamic> route) => false);
+        .pushNamedAndRemoveUntil(
+        LoginScreen.routeName, (Route<dynamic> route) => false);
     print('logOut');
   }
 
@@ -160,14 +186,19 @@ class _MapScreen extends State<MapPage> {
 
   createCarListWidgets(cars) {
     List<Widget> temp = <Widget>[];
-    for (var i = 0; i < cars.length - 1; i++) {
+    for (var i = 0; i < cars.length; i++) {
       var car = cars[i];
       temp.add(
-          ValueListenableBuilder<int>(
-              valueListenable: selected,
-              builder: (context, value, _) {
-                context.theme;
-                return ListTile(
+        ValueListenableBuilder<int>(
+            valueListenable: selected,
+            builder: (context, value, _) {
+              context.theme;
+              return SizedBox(
+                width: MediaQuery
+                    .of(context)
+                    .size
+                    .width,
+                child: ListTile(
                   key: Key(car['id'].toString()),
                   selected: value == car['id'],
                   selectedTileColor: Get.theme.primaryColor,
@@ -175,10 +206,10 @@ class _MapScreen extends State<MapPage> {
                     Text(
                       car['nomer'],
                       style: value == car['id'] ?
-                      Get.theme.textTheme.headline5.copyWith(
+                      Get.theme.textTheme.headline6.copyWith(
                           color: Colors.white
                       ) :
-                      Get.theme.textTheme.headline5.copyWith(
+                      Get.theme.textTheme.headline6.copyWith(
                           color: Get.theme.primaryColor
                       ),
                     ),
@@ -189,9 +220,10 @@ class _MapScreen extends State<MapPage> {
                     });
                     setPoints(carName: car['id']);
                   },
-                );
-              }
-          ),
+                ),
+              );
+            }
+        ),
       );
     }
     setState(() {
@@ -213,9 +245,12 @@ class _MapScreen extends State<MapPage> {
           currentMarkers = currentMarkers;
         });
       }
-      await prefs.setBool('drawable_markers_park', currentMarkers.contains(markers_enum.park));
-      await prefs.setBool('drawable_markers_track', currentMarkers.contains(markers_enum.track));
-      await prefs.setBool('drawable_markers_heading', currentMarkers.contains(markers_enum.heading));
+      await prefs.setBool(
+          'drawable_markers_park', currentMarkers.contains(markers_enum.park));
+      await prefs.setBool('drawable_markers_track',
+          currentMarkers.contains(markers_enum.track));
+      await prefs.setBool('drawable_markers_heading',
+          currentMarkers.contains(markers_enum.heading));
     }
     parkingMarkers = [];
     _points = [];
@@ -229,6 +264,13 @@ class _MapScreen extends State<MapPage> {
             cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate).then((
             value) {
           List<Marker> temp = [];
+          if (value.isBlank) {
+            Future.delayed(Duration(milliseconds: timeDilation.ceil() * 1000))
+                .then((_) {
+              Get.rawSnackbar(message: 'нет парковок за период',);
+              print('нет парковок за период');
+            });
+          }
           value.forEach((element) {
             double lat = element['Lat'];
             double lon = element['Lon'];
@@ -256,12 +298,17 @@ class _MapScreen extends State<MapPage> {
             .then((List value) {
           List<LatLng> temp = [];
           List<Marker> temp2 = [];
+          if (value.isBlank) {
+            Get.rawSnackbar(message: 'нет перемещений за период');
+            print('нет перемещений за период');
+          }
           var prevElementAngle = 0;
           value.forEach((element) {
             _element = element;
             var lat = element['Lat'];
             var lon = element['Lon'];
-            if (currentMarkers.contains(markers_enum.track)) {
+            if (currentMarkers.contains(markers_enum.track) ||
+                currentMarkers.contains(markers_enum.heading)) {
               temp.add(LatLng(lat, lon));
             }
             if ((element['angle'] - prevElementAngle).abs() > 30 &&
@@ -371,11 +418,20 @@ class _MapScreen extends State<MapPage> {
       ),
       // drawer: buildDrawer(context, route),
       body: SlidingUpPanel(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
         controller: panelController,
         backdropTapClosesPanel: true,
         backdropEnabled: true,
         header: Container(
-          color: Get.theme.backgroundColor,
+          padding: EdgeInsets.fromLTRB(3, 2, 3, 0),
+          decoration: BoxDecoration(
+            color: Get.theme.backgroundColor,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(20),
+            ),
+          ),
           width: MediaQuery
               .of(context)
               .size
@@ -385,50 +441,83 @@ class _MapScreen extends State<MapPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              TextButton(
-                onPressed: () {
-                  if (panelController.isPanelOpen) {
-                    panelController.close();
-                  } else {
-                    panelController.open();
-                  }
-                },
-                child: Func.getCarNom(cars, selected.value),
-              ),
-              ElevatedButton(
-                style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.resolveWith(
-                      getColor,)),
-                onPressed: () =>
-                    _selectDate(context, 'from').then((value) {
-                      if (selected.value != 0) setPoints(
-                          carName: selected.value);
-                    }),
-                child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text('От'),
-                      Text(fromDate.toLocal().toString().split(' ')[0],),
-                      Text(Func.formatTime(fromDate),),
-                    ]
+              SizedBox(
+                width: MediaQuery
+                    .of(context)
+                    .size
+                    .width / 3 - 2,
+                child:
+                TextButton(
+                  onPressed: () {
+                    if (panelController.isPanelOpen) {
+                      panelController.close();
+                    } else {
+                      panelController.open();
+                      if (cars.isBlank || cars == null)
+                        Func.fetchCars().then((value) {
+                          setState(() {
+                            createCarListWidgets(value);
+                            cars = value;
+                          });
+                        });
+                    }
+                  },
+                  child: Func.getCarNom(cars, selected.value),
                 ),
               ),
-              ElevatedButton(
-                style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.resolveWith(
-                      getColor,)),
-                onPressed: () =>
-                    _selectDate(context, 'to').then((value) {
-                      if (selected.value != 0) setPoints(
-                          carName: selected.value);
-                    }),
-                child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text('До'),
-                      Text(toDate.toLocal().toString().split(' ')[0],),
-                      Text(Func.formatTime(toDate),),
-                    ]
+              SizedBox(
+                width: MediaQuery
+                    .of(context)
+                    .size
+                    .width / 3 - 2,
+                child:
+                  FlatButton(
+                    shape: RoundedRectangleBorder(
+                          borderRadius: new BorderRadius.circular(25.0),
+                          side: BorderSide(width: 1, color: Colors.white),
+                    ),
+
+                    onPressed:  () =>
+                      _selectDate(context, 'from').then((value) {
+                        if (selected.value != 0) setPoints(
+                            carName: selected.value);
+                      }),
+                    // color: Get.theme.buttonColor,
+                  child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text('Выбрать от', style: Get.textTheme.bodyText1.copyWith(fontSize: 12),),
+                        Text(fromDate.toLocal().toString().split(' ')[0], style: Get.textTheme.bodyText1.copyWith(fontSize: 12),),
+                        Text(Func.formatTime(fromDate), style: Get.textTheme.bodyText1,),
+                      ]
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: MediaQuery
+                    .of(context)
+                    .size
+                    .width / 3 - 2,
+                child:
+                FlatButton(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: new BorderRadius.circular(25.0),
+                    side: BorderSide(width: 1, color: Colors.white),
+                  ),
+                  // color: Get.theme.buttonColor,
+                  onPressed: () =>
+                      _selectDate(context, 'to').then((value) {
+                        if (selected.value != 0) setPoints(
+                            carName: selected.value);
+                      }),
+                  child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text('Выбрать до', style: Get.textTheme.bodyText2.copyWith(fontSize: 12),),
+                        Text(toDate.toLocal().toString().split(' ')[0], style: Get.textTheme.bodyText1.copyWith(fontSize: 12),),
+                        Text(Func.formatTime(toDate), style: Get.textTheme.bodyText1,),
+                      ]
+                  ),
                 ),
               ),
             ],
@@ -436,33 +525,39 @@ class _MapScreen extends State<MapPage> {
         ),
         panel:
         Padding(
-            padding: EdgeInsets.fromLTRB(0, 100, 0, 0),
-            child:  carListWidgets.isEmpty ?
-            Container(
-                child:
-                Center(
-                  child: Column(
+          padding: EdgeInsets.fromLTRB(0, 100, 0, 0),
+          child: carListWidgets.isEmpty ?
+          Container(
+              child:
+              Center(
+                child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.wifi_off_rounded, color: Colors.black, size: 80,),
+                      Icon(
+                        Icons.wifi_off_rounded, color: Colors.black, size: 80,),
                       Text('Проверьте интернет соединение',
-                        style: Get.textTheme.headline4.copyWith(color: Colors.black, fontWeight: FontWeight.bold),
+                        style: Get.textTheme.headline4.copyWith(
+                            color: Colors.black, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
-                      ElevatedButton(onPressed: () =>
-                          Func.fetchCars().then((value) {
-                            createCarListWidgets(value);
-                            cars = value;
-                          }),
+                      ElevatedButton(
+                          onPressed: () =>
+                              Func.fetchCars().then((value) {
+                                // Func.logIn(pw: 'alex', un: 'alex').then((v) {
+                                  createCarListWidgets(value);
+                                  cars = value;
+                                // });
+                              }),
                           child: Text(
                               'Повторить попытку',
-                              style: Get.textTheme.bodyText1.copyWith(fontSize: 20, color: Colors.white))),
+                              style: Get.textTheme.bodyText1.copyWith(
+                                  fontSize: 20, color: Colors.white))),
                     ]),
-                )
-            ) : ListView(
-                  children: carListWidgets,
-            ),
+              )
+          ) : ListView(
+            children: carListWidgets,
+          ),
         ),
         body: Stack(
           children: [
@@ -554,7 +649,7 @@ class _MapScreen extends State<MapPage> {
                       ),
                     ),
                     Container(
-                      margin: EdgeInsets.fromLTRB(0, 150, 0, 0),
+                      margin: EdgeInsets.fromLTRB(0, 100, 0, 0),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -592,6 +687,21 @@ class _MapScreen extends State<MapPage> {
                           color: Colors.black,
                           onPressed: () {
                             mapController.rotate(0);
+                          }
+                      ),
+                    ),
+                    Container(
+                      margin: EdgeInsets.fromLTRB(0, 5, 0, 0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                          icon: Icon(Icons.car_repair),
+                          color: Colors.black,
+                          onPressed: () {
+                            mapController.fitBounds(LatLngBounds(_points.last,
+                                _points.last),);
                           }
                       ),
                     ),

@@ -51,7 +51,7 @@ class ParkingMarkerPopup extends StatelessWidget {
               Text(Func.formatToLocalDT(monument.dt, monument.park),
                 style: Get.theme.textTheme.headline6,),
               Text( 'Длительность: ' + (_parkDuration.hour > 0 ? (_parkDuration.hour.toString() + 'ч. ') : ' ') + _parkDuration.minute.toString() + 'м.',
-                style: Get.theme.textTheme.headline6,),
+                style: Get.theme.textTheme.headline6.copyWith(fontSize: 16),),
 
             ],
           ),
