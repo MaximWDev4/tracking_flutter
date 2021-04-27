@@ -12,8 +12,8 @@ extension E on String {
 
 class Func {
 
-  // static const _base = '192.168.0.50:8080';
-  static const _base = '185.97.113.59:8101';
+  static const _base = '192.168.0.50:8080';
+  // static const _base = '185.97.113.59:8101';
   static get url {
     // return 'mishka.pro/bike-gps/';
     return '/';
@@ -107,6 +107,25 @@ class Func {
     // return [];
   }
 
+  static Future<List<dynamic>> fetchLast({String base = _base, Map<String, String> headers = _headers, car,}) async {
+    // track&last=1
+    var token = (await pref).getString('Token');
+    int from = (DateTime.now().millisecondsSinceEpoch / 1000 - 86400).floor();
+    int to = (DateTime.now().millisecondsSinceEpoch / 1000).floor();
+    final Uri uri = Uri.http(
+        base, url, { 'track': '', 'LAST': '1'});
+    var body = 'Token='+ token +'&OT=' + from.toString() + '&DO=' + to.toString() +'&ID=' + car.toString()+ '&LAST=1';
+    return await http.post(uri, body: body, headers: headers).then((response) {
+      return jsonDecode(response.body)['data'];
+    }).timeout(Duration(milliseconds: timeDilation.ceil() * 10000), onTimeout: () {
+      Get.rawSnackbar(message:'Время запроса истекло!');
+      return [];
+    }).catchError((error) {
+      Get.rawSnackbar(message: error);
+      return [];
+    });
+  }
+
   static String formatToLocalDT(int date, int dur) {
     const months_name = [
       'января', 'февраля', 'марта',
@@ -134,8 +153,8 @@ class Func {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(id, style: Get.theme.textTheme.bodyText1),
-            Text(name, style: Get.theme.textTheme.bodyText1)
+            Text(id, style: Get.theme.textTheme.bodyText1.copyWith(fontSize: 13)),
+            Text(name, style: Get.theme.textTheme.bodyText1.copyWith(fontSize: 12), textAlign: TextAlign.center,)
           ],
         ),
       );
