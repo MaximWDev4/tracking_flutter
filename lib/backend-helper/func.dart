@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 extension E on String {
@@ -11,6 +13,9 @@ extension E on String {
 }
 
 class Func {
+  static const double LN2 = 0.6931471805599453;
+  static const int WORLD_PX_HEIGHT = 256;
+  static const int WORLD_PX_WIDTH = 256;
 
   static const _base = '192.168.0.50:8080';
   // static const _base = '185.97.113.59:8101';
@@ -165,10 +170,49 @@ class Func {
     }
   }
 
+  static String getCarNameNom(List cars, int selected) {
+    var carIdName = '';
+    var name = '';
+    var id = '';
+    if (cars.isNotEmpty && selected != 0) {
+      carIdName = (cars[cars.indexWhere((element) =>
+      element['id'] == selected)]['nomer']);
+      name = carIdName.substring(carIdName.indexOf(' '));
+      id = carIdName.substring(0, carIdName.indexOf(' '));
+      return name + '' + id;
+    }
+    return 'Не удалось добыть название';
+  }
+
   static formatTime(DateTime time) {
     return "${('0' + time.hour.toString()).substring(
         ('0' + time.hour.toString()).length - 2)}:${('0' +
         time.minute.toString()).substring(
         ('0' + time.minute.toString()).length - 2)}";
   }
+
+  static latRad(double lat) {
+    double ssin = sin(lat * PI / 180);
+    double radX2 = log((1 + ssin) / (1 - ssin)) / 2;
+    return max<double>(min<double>(radX2, PI), -PI) / 2;
+  }
+  static zoom(int mapPx, int worldPx, double fraction) {
+    const double LN2 = 0.6931471805599453;
+    return round(log(mapPx / worldPx / fraction) / LN2);
+  }
+
+  static getZoom({Function latRad: latRad, zoom: zoom, WORLD_PX_HEIGHT: WORLD_PX_HEIGHT, WORLD_PX_WIDTH: WORLD_PX_WIDTH, bounds, mapHeightPx, mapWidthPx}) {
+    LatLng ne = bounds.northEast;
+    LatLng sw = bounds.southWest;
+    double latFraction = (latRad(ne.latitude) - latRad(sw.latitude)) / PI;
+
+    double lngDiff = ne.longitude - sw.longitude;
+    double lngFraction = ((lngDiff < 0) ? (lngDiff + 360) : lngDiff) / 360;
+    double latZoom = zoom(mapHeightPx, WORLD_PX_HEIGHT, latFraction);
+    double lngZoom = zoom(mapWidthPx, WORLD_PX_WIDTH, lngFraction);
+
+    double result = min<double>(latZoom, lngZoom);
+    return result;
+  }
+
 }

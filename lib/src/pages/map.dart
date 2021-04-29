@@ -1,5 +1,7 @@
 import 'dart:math';
 import 'dart:async';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_datetime_picker/flutter_datetime_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -12,6 +14,7 @@ import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 import 'package:map_controller/map_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong/latlong.dart';
+import 'package:tracking_flutter/src/Widgets/login_screen/src/widget_helper.dart';
 import 'package:tracking_flutter/src/pages/login_screen.dart';
 import 'dart:collection';
 
@@ -21,6 +24,15 @@ import './parking_popup.dart';
 const MapA = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
 const MapB =  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png?access_token={accessToken}';
 const Token = 'pk.eyJ1IjoianVzdC1tYXgiLCJhIjoiY2ttMWo5Mm13NGRzejJubjFvazl5eWNqOSJ9.aSEaOcgSJ3aqaFgVAPKoHA';
+
+class Segment {
+  List<LatLng> points;
+  String carName;
+  DateTime dateFrom;
+  DateTime dateTo;
+
+  Segment(this.points, this.carName, this.dateFrom, this.dateTo);
+}
 
 enum markers_enum {
   none,
@@ -33,7 +45,7 @@ const MyColors = [
   Color.fromRGBO(59, 255, 00, 1),
   Color.fromRGBO(255, 0, 51, 1.0),
   Color.fromRGBO(0, 13, 255, 1.0),
-  Color.fromRGBO(255, 221, 0, 1.0),
+  Color.fromRGBO(64, 23, 1, 1.0),
   Color.fromRGBO(98, 0, 255, 1.0),
   Color.fromRGBO(255, 30, 0, 1.0),
   Color.fromRGBO(0, 255, 234, 1.0),
@@ -64,7 +76,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
   List<Marker> markers = <Marker>[];
   List<dynamic> parkings = [];
   List<Marker> parkingMarkers = [];
-  List<List<LatLng>> _currentSections = [];
+  List<Segment> _currentSections = [];
   List<dynamic> displayedSections = [];
   List<markers_enum> currentDisplayedMarkers = [
     markers_enum.park,
@@ -147,12 +159,80 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
         StatefulMapController(mapController: mapController);
 
     sub = statefulMapController.changeFeed.listen((change) {
-      setState(() {});
     });
     // intialize the controllers
     super.initState();
   }
 
+  void _animatedMapMove(LatLng coords, double zoom) {
+    // Create some tweens. These serve to split up the transition from one location to another.
+    // In our case, we want to split the transition be<tween> our current map center and the destination.
+    final _latTween = Tween<double>(
+        begin: mapController.center.latitude, end: coords.latitude);
+    final _lngTween = Tween<double>(
+        begin: mapController.center.longitude, end: coords.longitude);
+    final _zoomTween = Tween<double>(begin: mapController.zoom, end: zoom);
+
+    // Create a animation controller that has a duration and a TickerProvider.
+    var controller = AnimationController(
+        duration: const Duration(milliseconds: 500), vsync: this);
+    // The animation determines what path the animation will take. You can try different Curves values, although I found
+    // fastOutSlowIn to be my favorite.
+    Animation<double> animation =
+    CurvedAnimation(parent: controller, curve: Curves.fastOutSlowIn);
+
+    controller.addListener(() {
+      mapController.move(
+          LatLng(_latTween.evaluate(animation), _lngTween.evaluate(animation)),
+          _zoomTween.evaluate(animation));
+    });
+
+    animation.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        controller.dispose();
+      } else if (status == AnimationStatus.dismissed) {
+        controller.dispose();
+      }
+    });
+
+    controller.forward();
+  }
+
+  void _animatedMapFitBounds(LatLngBounds bounds) {
+    final zoom = Func.getZoom(bounds: bounds, mapHeightPx: 460, mapWidthPx: 300,);
+    print(zoom);
+    // Create some tweens. These serve to split up the transition from one location to another.
+    // In our case, we want to split the transition be<tween> our current map center and the destination.
+    final _latTween = Tween<double>(
+        begin: mapController.center.latitude, end: (bounds.north + bounds.south)/(2 + pow(0.32, zoom/2)));
+    final _lngTween = Tween<double>(
+        begin: mapController.center.longitude, end: (bounds.east + bounds.west)/(2 - pow(0.22, zoom/2)));
+    final _zoomTween = Tween<double>(begin: mapController.zoom, end: zoom);
+
+    // Create a animation controller that has a duration and a TickerProvider.
+    var controller = AnimationController(
+        duration: const Duration(milliseconds: 500), vsync: this);
+    // The animation determines what path the animation will take. You can try different Curves values, although I found
+    // fastOutSlowIn to be my favorite.
+    Animation<double> animation =
+    CurvedAnimation(parent: controller, curve: Curves.fastOutSlowIn);
+
+    controller.addListener(() {
+      mapController.move(
+          LatLng(_latTween.evaluate(animation), _lngTween.evaluate(animation)),
+          _zoomTween.evaluate(animation));
+    });
+
+    animation.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        controller.dispose();
+      } else if (status == AnimationStatus.dismissed) {
+        controller.dispose();
+      }
+    });
+
+    controller.forward();
+  }
 
   void _logOut() async {
     prefs.setString('Token', '');
@@ -372,60 +452,70 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
           markers = temp2;
         });
         _points.addAll(temp1);
-        createSections();
+        createSections(Func.getCarNameNom(cars, carName));
         drawSegOrTrack(0);
         _tabController.index = 1;
       });
     }
-    markLastCarPos(carName);
+    markLastCarPos(carName: carName);
   }
 
-  Future<LatLng> markLastCarPos(carName) async {
-    return (await Func.fetchLast(car: carName).then((List<dynamic> v) {
-      var _lat;
-      var _lon;
-      if (v.isNotEmpty) {
-        _lat = v[0]['Lat'];
-        _lon = v[0]['Lon'];
-        currentCarPos = [(Marker(
-          width: 40.0,
-          height: 40.0,
-          point: LatLng(_lat, _lon),
-          builder: (ctx) {
-            context.theme;
-            return Container(
-              child: Transform.rotate(
-                angle: 0.0 * pi / 180,
-                child: Image(
-                  image: AssetImage('assets/car.png'),
-                  width: 40,
-                  height: 40,),
-              ),
-            );
-          },
-          anchorPos: AnchorPos.align(AnchorAlign.top),
-        ))
-        ];
-      }
-      return LatLng(_lat, _lon);
-    })
-    );
-
+  Future<LatLng> markLastCarPos({carName = -1}) async {
+    if (carName > 0) {
+      return (await Func.fetchLast(car: carName).then((List<dynamic> v) {
+        if (!v.isNullOrBlank) {
+          var _lat;
+          var _lon;
+          if (v.isNotEmpty) {
+            _lat = v[0]['Lat'];
+            _lon = v[0]['Lon'];
+            setState(() {
+              currentCarPos = [(Marker(
+                width: 40.0,
+                height: 40.0,
+                point: LatLng(_lat, _lon),
+                builder: (ctx) {
+                  context.theme;
+                  return Container(
+                    child: Transform.rotate(
+                      angle: 0.0 * pi / 180,
+                      child: Image(
+                        image: AssetImage('assets/car.png'),
+                        width: 40,
+                        height: 40,),
+                    ),
+                  );
+                },
+                anchorPos: AnchorPos.align(AnchorAlign.top),
+              ))
+              ];
+            });
+          }
+          return LatLng(_lat, _lon);
+        }
+        return null;
+      })
+      );
+    } else {
+      showErrorToast(context, 'Не выбрана техника', 'select car');
+      return null;
+    }
   }
 
-  createSections() {
+  createSections(String carName) {
     _currentSections = [];
     if (_points.isNotEmpty) {
       if (parkings.isBlank) {
-        _currentSections.add([]);
+        _currentSections.add(Segment([], carName, DateTime.now(), DateTime.now()));
         _points.forEach((element) {
           var lat = element['Lat'];
           var lon = element['Lon'];
-          _currentSections[0].add(LatLng(lat, lon));
+          _currentSections[0].points.add(LatLng(lat, lon));
         });
       } else {
-        for (var i = 0; i <= parkings.length; i++) {
-          _currentSections.add([]);
+        var startsAtPark = _points.elementAt(0)['dt'] >= parkings.reversed.elementAt(0)['dt'];
+        for (var i = startsAtPark ? 1 : 0; i <= parkings.length; i++) {
+          _currentSections.add(Segment([], carName, DateTime.now(), DateTime.now()));
           var elements = _points.where((e) {
             return (i < parkings.length ? e['dt'] <
                 parkings.reversed.elementAt(i)['dt'] : true) &&
@@ -436,76 +526,107 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
           elements.forEach((element) {
             var lat = element['Lat'];
             var lon = element['Lon'];
-            _currentSections[i].add(LatLng(lat, lon));
+            _currentSections[startsAtPark ? i-1 : i].points.add(LatLng(lat, lon));
           });
         }
       }
+      _currentSections = _currentSections.where((element) => element.points.isNotEmpty).toList();
     }
   }
 
   selectSegment(int i) {
-    if (selectedSegment.value != i) {
-      selectedSegment.value = i;
-      drawSegOrTrack(i);
-      return;
+    if (selectedSegment.value != i && i != 0) {
+      setState(() {
+        selectedSegment.value = i;
+      });
+      // setState(() {
+        drawSegOrTrack(i);
+      // });
+    } else {
+      setState(() {
+        selectedSegment.value = 0;
+      });
+      drawSegOrTrack(0);
     }
-    selectedSegment.value = 0;
-    drawSegOrTrack(0);
   }
 
-  drawSegOrTrack(int sections ) {
-    print(sections);
+  drawSegOrTrack(int sections) {
+    polylines = [];
+    var s = statefulMapController.lines.length / 2;
+    for (var i = 0; i <= s; i++) {
+      print('length' + statefulMapController.lines.toString());
+      statefulMapController.removeLine(i.toString());
+      statefulMapController.removeLine(i.toString() + 'b');
+    }
     if (_currentSections.isNotEmpty) {
-      if (sections != 0){
-          var i = sections;
-            polylines = [
-              Polyline(
-                  points: _currentSections[i-1],
-                  strokeWidth: 10,
-                  color: Colors.white
-              ),
-              Polyline(
-                points: _currentSections[i-1],
-                strokeWidth: 4.0,
-                color: MyColors[i % 11],
-              )
-            ];
-          return;
+      if (sections != 0) {
+        var i = sections;
+        statefulMapController.addLine(name: '1b',
+            points: _currentSections[i - 1].points,
+            color: Colors.white,
+            isDotted: false,
+            width: 6);
+        statefulMapController.addLine(name: '1',
+            points: _currentSections[i - 1].points,
+            color: MyColors[i % 11],
+            isDotted: true,
+            width: 4);
+        // statefulMapController.fitLine('1');
+        // setState(() {
+        //   polylines = [
+        //     Polyline(
+        //         points: _currentSections[i-1],
+        //         strokeWidth: 10,
+        //         color: Colors.white
+        //     ),
+        //     Polyline(
+        //       points: _currentSections[i-1],
+        //       strokeWidth: 4.0,
+        //       color: MyColors[i % 11],
+        //     )
+        //   ];
+        if (_currentSections[i - 1].points.isNotEmpty) {
+          final bounds = LatLngBounds();
+          _currentSections[i - 1].points.forEach(bounds.extend);
+          _animatedMapFitBounds(bounds);
+          // mapController.fitBounds(bounds,
+          //     options: FitBoundsOptions(padding: EdgeInsets.fromLTRB(10, 0, 60, 220)));
         }
-      for (var i = 0; i < _currentSections.length; i++) {
-          polylines = [...polylines,
-            Polyline(
-                points: _currentSections[i],
-                strokeWidth: 10,
-                color: Colors.white
-            ),
-            Polyline(
-              points: _currentSections[i],
-              strokeWidth: 4.0,
-              color: MyColors[i % 11],
-            )
-          ];
+        // });
+      } else {
+        for (var i = 0; i < _currentSections.length; i++) {
+          print(i);
+          statefulMapController.addLine(name: i.toString() + 'b',
+              points: _currentSections[i].points,
+              color: Colors.white,
+              isDotted: false,
+              width: 6);
+          statefulMapController.addLine(name: i.toString(),
+              points: _currentSections[i].points,
+              color: MyColors[i + 1 % 11],
+              isDotted: true,
+              width: 4);
+        }
+        final bounds = LatLngBounds();
+        _currentSections.forEach((element) {
+          element.points.forEach(bounds.extend);
+        });
+        _animatedMapFitBounds(bounds);
+        // mapController.fitBounds(bounds,
+        //     options: FitBoundsOptions(padding: EdgeInsets.fromLTRB(10, 0, 60, 220)));
       }
-      return;
     }
   }
 
   List<Widget> buildSegList() => [
   for (var i=1;  i <= _currentSections.length; i++)
-    ListTile(
-        key: Key(i.toString()),
-        title:
-        InkResponse(
-          onTap: selectSegment(i),
-          child:
-            Container(
-              color: Color.fromRGBO(MyColors[i%11].red, MyColors[i%11].green, MyColors[i%11].blue, .5),
-              width: 100,
-              height: 50,
-              child: Center(child: Text(i.toString())),
-            ),
-        ),
-    ),
+      MyButton(
+        callback: () {selectSegment(i);},
+        i: i, selected: selectedSegment.value == i && selectedSegment.value != 0,
+        carName: _currentSections[i-1].carName,
+        timeFtom: _currentSections[i-1].dateFrom,
+        timeTo: _currentSections[i-1].dateTo,
+      ),
   ];
 
   Widget tabWidgetCars(BuildContext context, ScrollController scrollController) => carListWidgets.isEmpty ?
@@ -546,9 +667,8 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
     controller: scrollController,
       children: [
         _currentSections.isEmpty ?
-        Padding(padding: EdgeInsets.only(top: 12, bottom: 5),
-          child: Text('Выберите технику', style: Get.theme.textTheme.headline5,
-          textAlign: TextAlign.center,)) :
+          Text('Выберите технику', style: Get.theme.textTheme.headline5,
+          textAlign: TextAlign.center,):
         segSelect(), ...buildSegList(),
       ],
   );
@@ -663,15 +783,12 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
         scrollDirection: Axis.horizontal,
         children: [
           for (var i=1;  i <= _currentSections.length; i++)
-            InkResponse(
-              onTap: selectSegment(i),
-              child:
-              Container(
-                color: Color.fromRGBO(MyColors[i%11].red, MyColors[i%11].green, MyColors[i%11].blue, .5),
-                width: 100,
-                height: 50,
-                child: Center(child: Text(i.toString())),
-              ),
+            MyButton(
+              callback: () {selectSegment(i);},
+              i: i, selected: selectedSegment.value == i && selectedSegment.value != 0,
+              carName: _currentSections[i-1].carName,
+              timeFtom: _currentSections[i-1].dateFrom,
+              timeTo: _currentSections[i-1].dateTo,
             ),
         ],
       ),
@@ -692,7 +809,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
       preferredSize: Size.fromHeight(60),
       child:
     AppBar(
-      backgroundColor: Color.fromRGBO(5, 5, 170, 0),
+      // backgroundColor: Color.fromRGBO(5, 5, 170, 0),
       title:  buildDragIcon(),
       centerTitle: true,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight:  Radius.circular(20), bottomLeft:  Radius.circular(0), bottomRight:  Radius.circular(0))),
@@ -704,7 +821,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
   );
 
   Widget buildSlidingPanel(
-      @required ScrollController scrollController
+      ScrollController scrollController
       ) =>
       DefaultTabController(
           length: 2,
@@ -812,7 +929,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                         },
                       ),
                       PolylineLayerOptions(
-                        polylines: [...polylines],
+                        polylines: statefulMapController.lines,
                       ),
                       MarkerLayerOptions(markers: markers, key: Key('1')),
                       MarkerLayerOptions(markers: currentCarPos, key: Key('2')),
@@ -873,7 +990,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                           icon: Icon(Icons.add),
                           color: Colors.black,
                           onPressed: () {
-                            statefulMapController.zoomIn();
+                            _animatedMapMove(mapController.center, mapController.zoom + 1);
                           }
                       ),
                     ),
@@ -887,7 +1004,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                           icon: Icon(Icons.remove),
                           color: Colors.black,
                           onPressed: () {
-                            statefulMapController.zoomOut();
+                            _animatedMapMove(mapController.center, mapController.zoom - 1);
                           }
                       ),
                     ),
@@ -915,8 +1032,10 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                           icon: Icon(Icons.car_repair),
                           color: Colors.black,
                           onPressed: () {
-                            markLastCarPos(selected.value).then((v) {
-                              mapController.fitBounds(LatLngBounds(v, v),);
+                            markLastCarPos(carName: selected.value).then((v) {
+                              if (v != null) {
+                                _animatedMapMove(v, 15);
+                              }
                             });
                           }
                       ),
@@ -934,5 +1053,37 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
   void dispose() {
     sub.cancel();
     super.dispose();
+  }
+}
+
+class MyButton extends StatelessWidget{
+  const MyButton ({Key key, this.callback, this.i, this.selected, this.carName, this.timeFtom, this.timeTo}) : super(key: key);
+  @required final Function callback;
+  @required final i;
+  @required final selected;
+  @required final carName;
+  @required final timeFtom;
+  @required final timeTo;
+  @override
+  // getTimeStringFromDateTime(DateTime time) {
+  //
+  // }
+  Widget build(BuildContext context) {
+    // The InkWell wraps the custom flat button widget.
+    return InkWell(
+      onTap: callback,
+      child:
+      Container(
+        color: Color.fromRGBO(MyColors[i%11].red, MyColors[i%11].green, MyColors[i%11].blue, selected ? .8: .3),
+        width: 100,
+        height: 50,
+        child: Row(
+          children: [
+            Text(Func.formatTime(timeFtom), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+            Text(carName, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+            Text(Func.formatTime(timeTo), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+          ]),
+      ),
+    );
   }
 }
