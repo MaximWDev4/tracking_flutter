@@ -1,7 +1,8 @@
 import 'dart:math';
 import 'dart:async';
-
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_datetime_picker/flutter_datetime_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -27,11 +28,12 @@ const Token = 'pk.eyJ1IjoianVzdC1tYXgiLCJhIjoiY2ttMWo5Mm13NGRzejJubjFvazl5eWNqOS
 
 class Segment {
   List<LatLng> points;
+  List<dynamic> headings;
   String carName;
   DateTime dateFrom;
   DateTime dateTo;
 
-  Segment(this.points, this.carName, this.dateFrom, this.dateTo);
+  Segment(this.points, this.headings, this.carName, this.dateFrom, this.dateTo);
 }
 
 enum markers_enum {
@@ -64,6 +66,7 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
+  CarouselController buttonCarouselController = CarouselController();
   final PopupController _popupLayerController = PopupController();
   final List<Tab> myTabs = <Tab>[
     Tab(text: 'Техника'),
@@ -341,7 +344,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
     });
   }
 
-  void setPoints({ int carName, markers_enum a: markers_enum.none}) async {
+  Future setSelectedMarkers({markers_enum a: markers_enum.none}) async {
     if (a != markers_enum.none) {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       if (currentDisplayedMarkers.contains(a)) {
@@ -363,98 +366,39 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
       await prefs.setBool('drawable_markers_heading',
           currentDisplayedMarkers.contains(markers_enum.heading));
     }
+  }
+
+  void setPoints({ int carName}) async {
     parkingMarkers = [];
     _points.clear();
     markers = [];
     if (carName != 0 && !currentDisplayedMarkers.isBlank) {
-      var _lat;
-      var _lon;
       Func.fetchParking(
           cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate).then((
           value) {
         parkings = value;
-        List<Marker> temp = [];
         if (value.isBlank) {
           Future.delayed(Duration(milliseconds: timeDilation.ceil() * 1000))
               .then((_) {
             Get.rawSnackbar(message: 'нет парковок за период',);
-            print('нет парковок за период');
           });
-        }
-        if (currentDisplayedMarkers.contains(markers_enum.park)) {
-          value.forEach((element) {
-            double lat = element['Lat'];
-            double lon = element['Lon'];
-            temp.add(
-                ParkingMarker(
-                    monument: Parking(
-                      dt: element['dt'],
-                      park: element['park'],
-                      lat: lat,
-                      long: lon,
-                    )
-                )
-            );
-          });
-          setState(() {
-            parkingMarkers = temp;
-          });
+        } else {
+          drawParks(value);
         }
       }).then((value) =>
           Func.fetchPath(
           cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate)
           .then((List value) {
-        List<dynamic> temp = [];
-        List<Marker> temp2 = [];
         if (value.isBlank) {
           Get.rawSnackbar(message: 'нет перемещений за период');
           print('нет перемещений за период');
         }
-        var prevElementAngle = 0;
-        if (currentDisplayedMarkers.contains(markers_enum.track) ||
-            currentDisplayedMarkers.contains(markers_enum.heading)) {
-          value.forEach((element) {
-            var lat = element['Lat'];
-            var lon = element['Lon'];
-            if (currentDisplayedMarkers.contains(markers_enum.track) ||
-                currentDisplayedMarkers.contains(markers_enum.heading)) {
-              temp.add(element);
-            }
-            if ((element['angle'] - prevElementAngle).abs() > 30 &&
-                currentDisplayedMarkers.contains(markers_enum.heading)) {
-              temp2.add(Marker(
-                width: 20.0,
-                height: 20.0,
-                point: LatLng(lat, lon),
-                builder: (ctx) =>
-                    Container(
-                      child: Transform.rotate(
-                        angle: element['angle'] * pi / 180,
-                        child: Image(
-                          image: AssetImage('assets/arrow.png'),
-                          // color: Colors.green,
-                          width: 10,
-                          height: 10,
-                        ),
-                      ),
-                    ),
-                anchorPos: widget.anchorsPosition,
-              ));
-              prevElementAngle = element['angle'];
-            }
-          });
-        }
-        return [temp, temp2];
+        return value;
       })).then((dynamic temp) {
-        var temp1 = temp[0];
-        var temp2 = temp[1];
-        setState(() {
-          markers = temp2;
-        });
-        _points.addAll(temp1);
+        _points.addAll(temp);
         createSections(Func.getCarNameNom(cars, carName));
         drawSegOrTrack(0);
-        _tabController.index = 1;
+        // _tabController.index = 1;
       });
     }
     markLastCarPos(carName: carName);
@@ -497,7 +441,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
       })
       );
     } else {
-      showErrorToast(context, 'Не выбрана техника', 'select car');
+      Get.rawSnackbar(message: 'Не выбрана техника',);
       return null;
     }
   }
@@ -506,28 +450,40 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
     _currentSections = [];
     if (_points.isNotEmpty) {
       if (parkings.isBlank) {
-        _currentSections.add(Segment([], carName, DateTime.now(), DateTime.now()));
+        _currentSections.add(Segment([], [], carName,
+            DateTime.fromMillisecondsSinceEpoch(_points.first['dt']).toLocal(),
+            DateTime.fromMillisecondsSinceEpoch(_points.last['dt']).toLocal()));
         _points.forEach((element) {
           var lat = element['Lat'];
           var lon = element['Lon'];
+          _currentSections[0].headings.add(element);
           _currentSections[0].points.add(LatLng(lat, lon));
         });
       } else {
         var startsAtPark = _points.elementAt(0)['dt'] >= parkings.reversed.elementAt(0)['dt'];
         for (var i = startsAtPark ? 1 : 0; i <= parkings.length; i++) {
-          _currentSections.add(Segment([], carName, DateTime.now(), DateTime.now()));
           var elements = _points.where((e) {
             return (i < parkings.length ? e['dt'] <
                 parkings.reversed.elementAt(i)['dt'] : true) &&
                 (i > 0
                     ? e['dt'] > parkings.reversed.elementAt(i - 1)['dt']
                     : true);
-          });
-          elements.forEach((element) {
-            var lat = element['Lat'];
-            var lon = element['Lon'];
-            _currentSections[startsAtPark ? i-1 : i].points.add(LatLng(lat, lon));
-          });
+          }).toList();
+          if (elements.length > 0) {
+            _currentSections.add(Segment([], [], carName,
+                DateTime.fromMillisecondsSinceEpoch(elements.first['dt']*1000)
+                    .toLocal(),
+                DateTime.fromMillisecondsSinceEpoch(
+                    elements.last['dt'] * 1000).toLocal()));
+            print(_currentSections[startsAtPark ? i - 1 : i]);
+            elements.forEach((element) {
+              var lat = element['Lat'];
+              var lon = element['Lon'];
+              _currentSections[startsAtPark ? i - 1 : i].headings.add(element);
+              _currentSections[startsAtPark ? i - 1 : i].points.add(
+                  LatLng(lat, lon));
+            });
+          }
         }
       }
       _currentSections = _currentSections.where((element) => element.points.isNotEmpty).toList();
@@ -561,71 +517,124 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
     if (_currentSections.isNotEmpty) {
       if (sections != 0) {
         var i = sections;
-        statefulMapController.addLine(name: '1b',
-            points: _currentSections[i - 1].points,
-            color: Colors.white,
-            isDotted: false,
-            width: 6);
-        statefulMapController.addLine(name: '1',
-            points: _currentSections[i - 1].points,
-            color: MyColors[i % 11],
-            isDotted: true,
-            width: 4);
-        // statefulMapController.fitLine('1');
-        // setState(() {
-        //   polylines = [
-        //     Polyline(
-        //         points: _currentSections[i-1],
-        //         strokeWidth: 10,
-        //         color: Colors.white
-        //     ),
-        //     Polyline(
-        //       points: _currentSections[i-1],
-        //       strokeWidth: 4.0,
-        //       color: MyColors[i % 11],
-        //     )
-        //   ];
+        if (currentDisplayedMarkers.contains(markers_enum.track)) {
+          statefulMapController.addLine(name: '1b',
+              points: _currentSections[i - 1].points,
+              color: Colors.white,
+              isDotted: false,
+              width: 6);
+          statefulMapController.addLine(name: '1',
+              points: _currentSections[i - 1].points,
+              color: MyColors[i % 11],
+              isDotted: true,
+              width: 4);
+        }
         if (_currentSections[i - 1].points.isNotEmpty) {
           final bounds = LatLngBounds();
           _currentSections[i - 1].points.forEach(bounds.extend);
           _animatedMapFitBounds(bounds);
+          drawHeading(_currentSections[i-1].headings);
           // mapController.fitBounds(bounds,
           //     options: FitBoundsOptions(padding: EdgeInsets.fromLTRB(10, 0, 60, 220)));
         }
         // });
       } else {
-        for (var i = 0; i < _currentSections.length; i++) {
-          print(i);
-          statefulMapController.addLine(name: i.toString() + 'b',
-              points: _currentSections[i].points,
-              color: Colors.white,
-              isDotted: false,
-              width: 6);
-          statefulMapController.addLine(name: i.toString(),
-              points: _currentSections[i].points,
-              color: MyColors[i + 1 % 11],
-              isDotted: true,
-              width: 4);
+        if (currentDisplayedMarkers.contains(markers_enum.track)) {
+          for (var i = 0; i < _currentSections.length; i++) {
+            statefulMapController.addLine(name: i.toString() + 'b',
+                points: _currentSections[i].points,
+                color: Colors.white,
+                isDotted: false,
+                width: 6);
+            statefulMapController.addLine(name: i.toString(),
+                points: _currentSections[i].points,
+                color: MyColors[(i + 1) % 11],
+                isDotted: true,
+                width: 4);
+          }
         }
         final bounds = LatLngBounds();
+        final totalHeadings = [];
         _currentSections.forEach((element) {
+          totalHeadings.addAll(element.headings);
           element.points.forEach(bounds.extend);
         });
         _animatedMapFitBounds(bounds);
+        drawHeading(totalHeadings);
         // mapController.fitBounds(bounds,
         //     options: FitBoundsOptions(padding: EdgeInsets.fromLTRB(10, 0, 60, 220)));
       }
+
     }
+  }
+
+  drawHeading(elements) {
+    List<Marker> temp2 = [];
+    var prevElementAngle = 0;
+    if (currentDisplayedMarkers.contains(markers_enum.heading)) {
+      elements.forEach((element) {
+        var lat = element['Lat'];
+        var lon = element['Lon'];
+        if ((element['angle'] - prevElementAngle).abs() > 30) {
+          temp2.add(Marker(
+            width: 20.0,
+            height: 20.0,
+            point: LatLng(lat, lon),
+            builder: (ctx) =>
+                Container(
+                  child: Transform.rotate(
+                    angle: element['angle'] * pi / 180,
+                    child: Image(
+                      image: AssetImage('assets/arrow.png'),
+                      // color: Colors.green,
+                      width: 10,
+                      height: 10,
+                    ),
+                  ),
+                ),
+            anchorPos: widget.anchorsPosition,
+          ));
+          prevElementAngle = element['angle'];
+        }
+      });
+    }
+    setState(() {
+      markers = temp2;
+    });
+  }
+
+  drawParks(value) {
+    List<Marker> temp = [];
+    if (currentDisplayedMarkers.contains(markers_enum.park)) {
+      value.forEach((element) {
+        double lat = element['Lat'];
+        double lon = element['Lon'];
+        temp.add(
+            ParkingMarker(
+                monument: Parking(
+                  dt: element['dt'],
+                  park: element['park'],
+                  lat: lat,
+                  long: lon,
+                )
+            )
+        );
+      });
+    }
+    setState(() {
+      parkingMarkers = temp;
+    });
   }
 
   List<Widget> buildSegList() => [
   for (var i=1;  i <= _currentSections.length; i++)
       MyButton(
-        callback: () {selectSegment(i);},
+        callback: () {buttonCarouselController.animateToPage(i, duration:  Duration(milliseconds: 1000), curve: Curves.easeInOut);},
         i: i, selected: selectedSegment.value == i && selectedSegment.value != 0,
         carName: _currentSections[i-1].carName,
         timeFtom: _currentSections[i-1].dateFrom,
         timeTo: _currentSections[i-1].dateTo,
+        flex: 1,
       ),
   ];
 
@@ -669,7 +678,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
         _currentSections.isEmpty ?
           Text('Выберите технику', style: Get.theme.textTheme.headline5,
           textAlign: TextAlign.center,):
-        segSelect(), ...buildSegList(),
+        Carousel(_currentSections, selectedSegment, selectSegment, buttonCarouselController), ...buildSegList(),
       ],
   );
 
@@ -712,7 +721,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                     });
                 }
               },
-              child: Func.getCarNom(cars, selected.value),
+              child: Func.getCarNom(cars, selected.value, true),
             ),
           ),
           SizedBox(
@@ -770,26 +779,6 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  segSelect() {
-    return Container(
-      height: 70,
-      color: Colors.white,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          for (var i=1;  i <= _currentSections.length; i++)
-            MyButton(
-              callback: () {selectSegment(i);},
-              i: i, selected: selectedSegment.value == i && selectedSegment.value != 0,
-              carName: _currentSections[i-1].carName,
-              timeFtom: _currentSections[i-1].dateFrom,
-              timeTo: _currentSections[i-1].dateTo,
-            ),
         ],
       ),
     );
@@ -869,21 +858,27 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
               title: const Text('Парковки за период'),
               selected: currentDisplayedMarkers.indexOf(markers_enum.park) > -1,
               onTap: () {
-                setPoints(carName: selected.value, a: markers_enum.park);
+                setSelectedMarkers(a: markers_enum.park).then((value) =>
+                  drawParks(parkings)
+                );
               },
             ),
             ListTile(
               title: const Text('Маршрут за период'),
               selected: currentDisplayedMarkers.indexOf(markers_enum.track) > -1,
               onTap: () {
-                setPoints(carName: selected.value, a: markers_enum.track);
+                setSelectedMarkers(a: markers_enum.track).then((value) =>
+                  drawSegOrTrack(selectedSegment.value,)
+                );
               },
             ),
             ListTile(
               title: const Text('Показывать направление движения'),
               selected: currentDisplayedMarkers.indexOf(markers_enum.heading) > -1,
               onTap: () {
-                setPoints(carName: selected.value, a: markers_enum.heading);
+                setSelectedMarkers(a: markers_enum.heading).then((value) =>
+                  drawSegOrTrack(selectedSegment.value,)
+                );
               },
             ),
           ],
@@ -951,9 +946,24 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                 ),
               ],
             ),
+            if (selected.value != 0)
+              Positioned(
+                top: 0,
+                left: 0,
+                height: 40,
+                width: MediaQuery.of(context).size.width,
+                child: Container(
+                  color: Color.fromRGBO(255, 255, 255, 0.5),
+                  child: Text(Func.getCarNom(cars, selected.value, false),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.fade,
+                    style: Get.textTheme.headline6.copyWith(color: Colors.black87),
+                  ),
+                ),
+              ),
             Positioned(
               right: 5,
-              top: 5,
+              top: MediaQuery.of(context).size.height * .1,
               child: Column(
                   children: [
                     Container(
@@ -981,7 +991,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                       ),
                     ),
                     Container(
-                      margin: EdgeInsets.fromLTRB(0, 100, 0, 0),
+                      margin: EdgeInsets.fromLTRB(0, 5, 0, 0),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -1057,13 +1067,14 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
 }
 
 class MyButton extends StatelessWidget{
-  const MyButton ({Key key, this.callback, this.i, this.selected, this.carName, this.timeFtom, this.timeTo}) : super(key: key);
+  const MyButton ({Key key, this.callback, this.i, this.selected, this.carName, this.timeFtom, this.timeTo, this.flex}) : super(key: key);
   @required final Function callback;
   @required final i;
   @required final selected;
   @required final carName;
   @required final timeFtom;
   @required final timeTo;
+  @required final flex;
   @override
   // getTimeStringFromDateTime(DateTime time) {
   //
@@ -1074,16 +1085,108 @@ class MyButton extends StatelessWidget{
       onTap: callback,
       child:
       Container(
-        color: Color.fromRGBO(MyColors[i%11].red, MyColors[i%11].green, MyColors[i%11].blue, selected ? .8: .3),
-        width: 100,
+        decoration: BoxDecoration(border: Border.all(width: 5, style: BorderStyle.solid, color: Color.fromRGBO(MyColors[i%11].red, MyColors[i%11].green, MyColors[i%11].blue, selected ? .8: .3))),
+        // color: Color.fromRGBO(MyColors[i%11].red, MyColors[i%11].green, MyColors[i%11].blue, selected ? .8: .3),
+        width: MediaQuery.of(context).size.width,
         height: 50,
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            Text(Func.formatTime(timeFtom), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
-            Text(carName, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
-            Text(Func.formatTime(timeTo), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+            if (carName == 'Все маршруты')
+              Text(carName, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+            if (carName != 'Все маршруты')
+              Text(Func.formatDateTime(timeFtom), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+            if (carName != 'Все маршруты')
+              Text('->', overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+            if (carName != 'Все маршруты')
+              Text(Func.formatDateTime(timeTo), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
           ]),
       ),
     );
   }
+}
+
+class Carousel extends StatefulWidget {
+  Carousel(this._currentSections, this.selectedSegment, this.selectSegment, this.buttonCarouselController);
+  @required CarouselController buttonCarouselController;
+  @required final _currentSections;
+  @required final selectedSegment;
+  @required final Function selectSegment;
+  @override
+  State<StatefulWidget> createState() {
+    return _ManuallyControlledSliderState();
+  }
+}
+class _ManuallyControlledSliderState extends State<Carousel> {
+  @override
+  void initState() {
+    super.initState();
+  }
+  segSelect() {
+    return  [
+          if (widget._currentSections.length>1)
+            MyButton(
+            callback: () {widget.selectSegment(0);},
+            i: 0, selected: widget.selectedSegment.value == 0,
+            carName: 'Все маршруты',
+            timeFtom: widget._currentSections[0].dateFrom,
+            timeTo: widget._currentSections[widget._currentSections.length-1].dateTo,
+            flex: 1,),
+          for (var i=1;  i <= widget._currentSections.length; i++)
+            MyButton(
+              callback: () {widget.selectSegment(i);},
+              i: i, selected: widget.selectedSegment.value == i && widget.selectedSegment.value != 0,
+              carName: '',
+              timeFtom: widget._currentSections[i-1].dateFrom,
+              timeTo: widget._currentSections[i-1].dateTo,
+              flex: 1,
+            ),
+        ];
+  }
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: <Widget>[
+        if (widget._currentSections.length>1)
+        Container(
+          width: MediaQuery.of(context).size.width * 0.1,
+          child:
+          TextButton(
+            onPressed: () => widget.buttonCarouselController.previousPage(
+                duration: Duration(milliseconds: 300), curve: Curves.easeInOut),
+            child: Icon(Icons.keyboard_arrow_left_rounded),
+          ),
+        ),
+        Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: CarouselSlider(
+            items: segSelect(),
+            carouselController: widget.buttonCarouselController,
+            options: CarouselOptions(
+              height: 70,
+              scrollDirection: Axis.horizontal,
+              viewportFraction: 1,
+              autoPlay: false,
+              onPageChanged: (i, r) {
+                print(r);
+                widget.selectSegment(i);
+              }
+            ),
+          ),
+        ),
+        if (widget._currentSections.length>1)
+        Container(
+        width: MediaQuery.of(context).size.width * 0.1,
+        child:
+          TextButton(
+            onPressed: () {
+              widget.buttonCarouselController.nextPage(
+                duration: Duration(milliseconds: 300), curve: Curves.easeInOut);
+            },
+            child: Icon(Icons.keyboard_arrow_right_rounded),
+          ),
+        ),
+      ]
+  );
 }

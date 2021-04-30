@@ -17,8 +17,8 @@ class Func {
   static const int WORLD_PX_HEIGHT = 256;
   static const int WORLD_PX_WIDTH = 256;
 
-  static const _base = '192.168.0.50:8080';
-  // static const _base = '185.97.113.59:8101';
+  // static const _base = '192.168.0.50:8080';
+  static const _base = '185.97.113.59:8101';
   static get url {
     // return 'mishka.pro/bike-gps/';
     return '/';
@@ -145,7 +145,7 @@ class Func {
     return 'С ' + fromStr + '\nДо ' + toStr;
   }
 
-  static Widget getCarNom(List cars, int selected) {
+  static dynamic getCarNom(List cars, int selected, textOrWidget) {
     var carIdName = '';
     var name = '';
     var id = '';
@@ -154,19 +154,31 @@ class Func {
       element['id'] == selected)]['nomer']);
       name = carIdName.substring(carIdName.indexOf(' '));
       id = carIdName.substring(0, carIdName.indexOf(' '));
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(id, style: Get.theme.textTheme.bodyText1.copyWith(fontSize: 13)),
-            Text(name, style: Get.theme.textTheme.bodyText1.copyWith(fontSize: 12), textAlign: TextAlign.center,)
-          ],
-        ),
-      );
+      if (textOrWidget) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(id,
+                  style: Get.theme.textTheme.bodyText1.copyWith(fontSize: 13)),
+              Text(name,
+                style: Get.theme.textTheme.bodyText1.copyWith(fontSize: 12),
+                textAlign: TextAlign.center,)
+            ],
+          ),
+        );
+      } else {
+        return id + name;
+      }
     } else {
       carIdName = 'Выбрать\n технику';
-      return Text(
-          carIdName, style: Get.theme.textTheme.bodyText1.copyWith(fontSize: 18));
+      if (textOrWidget) {
+        return Text(
+            carIdName,
+            style: Get.theme.textTheme.bodyText1.copyWith(fontSize: 18));
+      } else {
+        return 'Выбрать технику';
+      }
     }
   }
 
@@ -190,6 +202,14 @@ class Func {
         time.minute.toString()).substring(
         ('0' + time.minute.toString()).length - 2)}";
   }
+static formatDateTime(DateTime time) {
+    return "${time.month}.${time.day} ${('0' + time.hour.toString()).substring(
+        ('0' + time.hour.toString()).length - 2)}:${('0' +
+        time.minute.toString()).substring(
+        ('0' + time.minute.toString()).length - 2)}";
+  }
+
+
 
   static latRad(double lat) {
     double ssin = sin(lat * PI / 180);

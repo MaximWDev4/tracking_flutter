@@ -38,6 +38,7 @@ dependencies:
   provider: ^5.0.0
   transformer_page_view: ^0.1.6
   loader_overlay: ^2.0.0
+  carousel_slider: ^3.0.0
 #  flutter_login: 1.1.0
 
   # The following adds the Cupertino Icons font to your application.
