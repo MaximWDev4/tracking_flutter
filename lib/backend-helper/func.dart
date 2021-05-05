@@ -17,8 +17,8 @@ class Func {
   static const int WORLD_PX_HEIGHT = 256;
   static const int WORLD_PX_WIDTH = 256;
 
-  // static const _base = '192.168.0.50:8080';
-  static const _base = '185.97.113.59:8101';
+  static const _base = '192.168.0.50:8080';
+  // static const _base = '185.97.113.59:8101';
   static get url {
     // return 'mishka.pro/bike-gps/';
     return '/';
@@ -202,11 +202,8 @@ class Func {
         time.minute.toString()).substring(
         ('0' + time.minute.toString()).length - 2)}";
   }
-static formatDateTime(DateTime time) {
-    return "${time.month}.${time.day} ${('0' + time.hour.toString()).substring(
-        ('0' + time.hour.toString()).length - 2)}:${('0' +
-        time.minute.toString()).substring(
-        ('0' + time.minute.toString()).length - 2)}";
+static formatDateOfTime(DateTime time) {
+    return "${time.month}.${time.day}.${time.year}";
   }
 
 

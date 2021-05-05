@@ -15,7 +15,6 @@ import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 import 'package:map_controller/map_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong/latlong.dart';
-import 'package:tracking_flutter/src/Widgets/login_screen/src/widget_helper.dart';
 import 'package:tracking_flutter/src/pages/login_screen.dart';
 import 'dart:collection';
 
@@ -628,6 +627,9 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
 
   List<Widget> buildSegList() => [
   for (var i=1;  i <= _currentSections.length; i++)
+    SizedBox(
+      height: 60,
+      child:
       MyButton(
         callback: () {buttonCarouselController.animateToPage(i, duration:  Duration(milliseconds: 1000), curve: Curves.easeInOut);},
         i: i, selected: selectedSegment.value == i && selectedSegment.value != 0,
@@ -635,10 +637,11 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
         timeFtom: _currentSections[i-1].dateFrom,
         timeTo: _currentSections[i-1].dateTo,
         flex: 1,
-      ),
+      ),)
   ];
 
-  Widget tabWidgetCars(BuildContext context, ScrollController scrollController) => carListWidgets.isEmpty ?
+  Widget tabWidgetCars(BuildContext context, ScrollController scrollController) =>
+  carListWidgets.isEmpty ?
   Container(
       child:
       Center(
@@ -672,13 +675,17 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
       children: [ carSelect(), ...carListWidgets ],
   );
 
+  Widget buildSegCarousel() =>
+      Carousel(_currentSections, selectedSegment, selectSegment, buttonCarouselController);
+
   Widget tabWidgetSeg(BuildContext context, ScrollController scrollController) => ListView(
     controller: scrollController,
+
       children: [
         _currentSections.isEmpty ?
           Text('Выберите технику', style: Get.theme.textTheme.headline5,
           textAlign: TextAlign.center,):
-        Carousel(_currentSections, selectedSegment, selectSegment, buttonCarouselController), ...buildSegList(),
+        buildSegCarousel(), ...buildSegList(),
       ],
   );
 
@@ -886,6 +893,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
       ),
       // drawer: buildDrawer(context, route),
       body: SlidingUpPanel(
+
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
@@ -894,6 +902,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
         backdropTapClosesPanel: true,
         backdropEnabled: true,
         backdropOpacity: 0,
+        onPanelClosed: () => _tabController.index = 1,
         panelBuilder: (scrollController) => buildSlidingPanel(scrollController),
         minHeight: 130,
         body: Stack(
@@ -1095,11 +1104,22 @@ class MyButton extends StatelessWidget{
             if (carName == 'Все маршруты')
               Text(carName, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
             if (carName != 'Все маршруты')
-              Text(Func.formatDateTime(timeFtom), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(Func.formatDateOfTime(timeFtom), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+                  Text(Func.formatTime(timeFtom), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),),
+              ]),
             if (carName != 'Все маршруты')
-              Text('->', overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+              Icon(Icons.arrow_right_alt_outlined, size: 30,),
             if (carName != 'Все маршруты')
-              Text(Func.formatDateTime(timeTo), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+              Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(Func.formatDateOfTime(timeTo), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black),),
+                    Text(Func.formatTime(timeTo), overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),),
+                  ]),
           ]),
       ),
     );
