@@ -77,7 +77,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
   List<Marker> currentCarPos = [];
   List<Marker> markers = <Marker>[];
   List<dynamic> parkings = [];
-  List<Marker> parkingMarkers = [];
+  List<ParkingMarker> parkingMarkers = [];
   List<Segment> _currentSections = [];
   List<dynamic> displayedSections = [];
   List<markers_enum> currentDisplayedMarkers = [
@@ -603,7 +603,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
   }
 
   drawParks(value) {
-    List<Marker> temp = [];
+    List<ParkingMarker> temp = [];
     if (currentDisplayedMarkers.contains(markers_enum.park)) {
       value.forEach((element) {
         double lat = element['Lat'];
@@ -623,6 +623,18 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
     setState(() {
       parkingMarkers = temp;
     });
+  }
+
+  List<Parking> findAllClosestMarkers(ParkingMarker marker) {
+    List<Parking> value = [];
+    var dist = Func.findDistFromZoom(mapController.zoom);
+    parkingMarkers.reversed.toList().forEach((element) {
+        if (Func.haversineFunction(marker.point, element.point) < dist) {
+            value.add(element.monument);
+        }
+      }
+    );
+    return value;
   }
 
   List<Widget> buildSegList() => [
@@ -974,9 +986,14 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                         popupSnap: PopupSnap.markerTop,
                         popupController: _popupLayerController,
                         popupBuilder: (_, Marker marker) {
+                          List<Parking> closest = findAllClosestMarkers(marker);
                           if (marker is ParkingMarker) {
-                            return ParkingMarkerPopup(
-                                monument: marker.monument);
+                            if (closest.length < 2) {
+                              return ParkingMarkerPopup(
+                                  monument: marker.monument);
+                            } else {
+                              return ManyParkingMarkersPopup(monuments: closest);
+                            }
                           }
                           return Card(child: const Text('Not a monument'));
                         },
@@ -1160,7 +1177,7 @@ class MyButton extends StatelessWidget{
 
 class Carousel extends StatefulWidget {
   Carousel(this._currentSections, this.selectedSegment, this.selectSegment, this.buttonCarouselController);
-  @required CarouselController buttonCarouselController;
+  @required final CarouselController buttonCarouselController;
   @required final _currentSections;
   @required final selectedSegment;
   @required final Function selectSegment;

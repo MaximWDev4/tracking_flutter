@@ -17,8 +17,8 @@ class Func {
   static const int WORLD_PX_HEIGHT = 256;
   static const int WORLD_PX_WIDTH = 256;
 
-  static const _base = '192.168.0.50:8080';
-  // static const _base = '185.97.113.59:8101';
+  // static const _base = '192.168.0.50:8080';
+  static const _base = '185.97.113.59:8101';
   static get url {
     // return 'mishka.pro/bike-gps/';
     return '/';
@@ -131,7 +131,9 @@ class Func {
     });
   }
 
-  static String formatToLocalDT(int date, int dur) {
+  static Widget formatToLocalDT(int date, int dur) {
+    var normalStyle = Get.theme.textTheme.headline6.copyWith(fontWeight: FontWeight.normal, fontSize: 18);
+    var thickStyle = Get.theme.textTheme.headline6.copyWith(fontWeight: FontWeight.bold, fontSize: 18);
     const months_name = [
       'января', 'февраля', 'марта',
       'апреля', 'мая', 'июня',
@@ -142,7 +144,10 @@ class Func {
     String fromStr = ('0' + fromDT.hour.toString()).lastChars(2) + ':' + ('0' + fromDT.minute.toString()).lastChars(2) + ', ' + fromDT.day.toString() + ' ' + months_name[fromDT.month-1];
     DateTime toDT = DateTime.fromMillisecondsSinceEpoch((date + dur) * 1000);
     String toStr =  ('0' + toDT.hour.toString()).lastChars(2) + ':' + ('0' + toDT.minute.toString()).lastChars(2) + ', ' + toDT.day.toString() + ' ' + months_name[toDT.month-1];
-    return 'С ' + fromStr + '\nДо ' + toStr;
+    return Column(children: [
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text('С ', style: normalStyle,), Text(fromStr, style: thickStyle,) ],),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text('До ', style: normalStyle,),  Text(toStr, style: thickStyle,)]),
+    ]);
   }
 
   static dynamic getCarNom(List cars, int selected, textOrWidget) {
@@ -232,4 +237,38 @@ static formatDateOfTime(DateTime time) {
     return result;
   }
 
+  static toRad(num n) {
+    return n * PI / 180;
+  }
+  static double haversineFunction(LatLng A, LatLng B) {
+
+    var lat2 = B.latitude;
+    var lon2 = B.longitude;
+    var lat1 = A.latitude;
+    var lon1 = A.longitude;
+
+    var R = 6371; // km
+//has a problem with the .toRad() method below.
+    var x1 = lat2-lat1;
+    var dLat = toRad(x1);
+    var x2 = lon2-lon1;
+    var dLon = toRad(x2);
+    var a = sin(dLat/2) * sin(dLat/2) +
+        cos(toRad(lat1)) * cos(toRad(lat2)) *
+            sin(dLon/2) * sin(dLon/2);
+    var c = 2 * atan2(sqrt(a), sqrt(1-a));
+    var d = R * c;
+    print(d*1000);
+    return d*1000;
+  }
+
+  static findDistFromZoom(zoom) {
+    var dist = 10;
+    print(zoom);
+    for ( var i= 1; i <= 18 - zoom; i++) {
+      dist = dist*2;
+    }
+    print(dist);
+    return dist;
+  }
 }
