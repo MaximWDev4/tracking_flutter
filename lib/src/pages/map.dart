@@ -640,54 +640,87 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
       ),)
   ];
 
-  Widget tabWidgetCars(BuildContext context, ScrollController scrollController) =>
-  carListWidgets.isEmpty ?
-  Container(
-      child:
-      Center(
-        child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.wifi_off_rounded, color: Colors.black, size: 80,),
-              Text('Проверьте интернет соединение',
-                style: Get.textTheme.headline4.copyWith(
-                    color: Colors.black, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              ElevatedButton(
-                  onPressed: () =>
-                      Func.fetchCars().then((value) {
-                        // Func.logIn(pw: 'alex', un: 'alex').then((v) {
-                        createCarListWidgets(value);
-                        cars = value;
-                        // });
-                      }),
-                  child: Text(
-                      'Повторить попытку',
-                      style: Get.textTheme.bodyText1.copyWith(
-                          fontSize: 20, color: Colors.white))),
-            ]),
-      )
-  ) :ListView(
-      controller: scrollController,
-      children: [ carSelect(), ...carListWidgets ],
-  );
+  Widget tabWidgetCars(BuildContext context, ScrollController scrollController) {
+    if (carListWidgets.isEmpty) {
+      return Container(
+          child:
+          Center(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.wifi_off_rounded, color: Colors.black, size: 80,),
+                  Text('Проверьте интернет соединение',
+                    style: Get.textTheme.headline4.copyWith(
+                        color: Colors.black, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  ElevatedButton(
+                      onPressed: () =>
+                          Func.fetchCars().then((value) {
+                            // Func.logIn(pw: 'alex', un: 'alex').then((v) {
+                            createCarListWidgets(value);
+                            cars = value;
+                            // });
+                          }),
+                      child: Text(
+                          'Повторить попытку',
+                          style: Get.textTheme.bodyText1.copyWith(
+                              fontSize: 20, color: Colors.white))),
+                ]),
+          )
+      );
+    }
+    else {
+      return Flex(
+        direction: Axis.vertical,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+              height: 70.0,
+              child:
+              carSelect()
+          ),
+          Expanded(
+          child:
+            ListView(
+              controller: scrollController,
+              children: [...carListWidgets],
+            )
+          ),
+        ],
+      );
+    }
+  }
 
   Widget buildSegCarousel() =>
       Carousel(_currentSections, selectedSegment, selectSegment, buttonCarouselController);
 
-  Widget tabWidgetSeg(BuildContext context, ScrollController scrollController) => ListView(
-    controller: scrollController,
-
-      children: [
-        _currentSections.isEmpty ?
-          Text('Выберите технику', style: Get.theme.textTheme.headline5,
-          textAlign: TextAlign.center,):
-        buildSegCarousel(), ...buildSegList(),
-      ],
-  );
+  Widget tabWidgetSeg(BuildContext context, ScrollController scrollController) {
+    if (_currentSections.isEmpty) {
+      return Text('Выберите технику', style: Get.theme.textTheme.headline5, textAlign: TextAlign.center,);
+    } else {
+      return Column(
+        children: [
+          Container(
+            height: 70,
+          child:
+            buildSegCarousel(),
+          ),
+          Expanded(
+            child:
+              ListView(
+                controller: scrollController,
+                children: [
+                  ...buildSegList(),
+                ],
+              ),
+          ),
+        ],
+      );
+    }
+  }
 
   carSelect() {
     return Container(
@@ -902,7 +935,6 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
         backdropTapClosesPanel: true,
         backdropEnabled: true,
         backdropOpacity: 0,
-        onPanelClosed: () => _tabController.index = 1,
         panelBuilder: (scrollController) => buildSlidingPanel(scrollController),
         minHeight: 130,
         body: Stack(
