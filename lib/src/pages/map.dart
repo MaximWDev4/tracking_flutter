@@ -1116,25 +1116,31 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                           icon: Icon(Icons.car_repair),
                           color: Colors.black,
                           onPressed: () {
-                            markLastCarPos(carName: selected.value).then((v) {
-                              if (v != null) {
-                                _animatedMapMove(v, 15);
-                              }
-                            });
-                            setState(() {
-                              tracking = !tracking;
-                            });
-                            if (tracking) {
-                              Get.rawSnackbar(message: 'Отслеживаем...');
-                              stream = trackCarPosStream().listen((v) {
+                            if (selected.value != 0) {
+                              markLastCarPos(carName: selected.value).then((v) {
                                 if (v != null) {
                                   _animatedMapMove(v, 15);
                                 }
                               });
-                            }  else {
-                              Get.rawSnackbar(message: 'Отслеживание остановлено');
-                              stream.cancel();
-                              stream = null;
+                              setState(() {
+                                tracking = !tracking;
+                              });
+                              if (tracking) {
+                                Get.rawSnackbar(message: 'Отслеживаем...');
+                                stream = trackCarPosStream().listen((v) {
+                                  if (v != null) {
+                                    _animatedMapMove(v, 15);
+                                  }
+                                });
+                              } else {
+                                Get.rawSnackbar(
+                                    message: 'Отслеживание остановлено');
+                                stream.cancel();
+                                stream = null;
+                              }
+                            } else {
+                              Get.rawSnackbar(
+                                  message: 'Необходимо вабрать технику');
                             }
                           }
                       ),
