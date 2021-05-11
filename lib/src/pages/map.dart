@@ -105,6 +105,9 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
 
   var isSwitched = false;
 
+  bool tracking = false;
+  var stream;
+
   f() async {
     prefs = await SharedPreferences.getInstance();
   }
@@ -202,7 +205,6 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
 
   void _animatedMapFitBounds(LatLngBounds bounds) {
     final zoom = Func.getZoom(bounds: bounds, mapHeightPx: 460, mapWidthPx: 300,);
-    print(zoom);
     // Create some tweens. These serve to split up the transition from one location to another.
     // In our case, we want to split the transition be<tween> our current map center and the destination.
     final _latTween = Tween<double>(
@@ -241,7 +243,6 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
     Navigator.of(context)
         .pushNamedAndRemoveUntil(
         LoginScreen.routeName, (Route<dynamic> route) => false);
-    print('logOut');
   }
 
   Future<Null> _selectDate(BuildContext context, String dateVar) async {
@@ -371,12 +372,22 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
     parkingMarkers = [];
     _points.clear();
     markers = [];
+    if (stream != null) {
+      stream.cancel();
+      stream = null;
+      Get.rawSnackbar(message: 'Отслеживание остановлено');
+    }
+    setState(() {
+      tracking = false;
+    });
     if (carName != 0 && !currentDisplayedMarkers.isBlank) {
       Func.fetchParking(
           cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate).then((
           value) {
         parkings = value;
         if (value.isBlank) {
+          parkings = [];
+          parkingMarkers = [];
           Future.delayed(Duration(milliseconds: timeDilation.ceil() * 1000))
               .then((_) {
             Get.rawSnackbar(message: 'нет парковок за период',);
@@ -389,8 +400,9 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
           cars: cars, car: carName, dateFrom: fromDate, dateTo: toDate)
           .then((List value) {
         if (value.isBlank) {
+          _points.clear();
+          drawSegOrTrack(0);
           Get.rawSnackbar(message: 'нет перемещений за период');
-          print('нет перемещений за период');
         }
         return value;
       })).then((dynamic temp) {
@@ -445,6 +457,12 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
     }
   }
 
+  Stream<LatLng> trackCarPosStream() async* {
+    while (this.tracking) {
+      yield await Future.delayed(Duration(seconds: 30), () => this.markLastCarPos(carName: this.selected.value));
+    }
+  }
+
   createSections(String carName) {
     _currentSections = [];
     if (_points.isNotEmpty) {
@@ -462,10 +480,10 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
         var startsAtPark = _points.elementAt(0)['dt'] >= parkings.reversed.elementAt(0)['dt'];
         for (var i = startsAtPark ? 1 : 0; i <= parkings.length; i++) {
           var elements = _points.where((e) {
-            return (i < parkings.length ? e['dt'] <
+            return (i < parkings.length ? e['dt'] <=
                 parkings.reversed.elementAt(i)['dt'] : true) &&
                 (i > 0
-                    ? e['dt'] > parkings.reversed.elementAt(i - 1)['dt']
+                    ? e['dt'] >= parkings.reversed.elementAt(i - 1)['dt']
                     : true);
           }).toList();
           if (elements.length > 0) {
@@ -474,7 +492,6 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                     .toLocal(),
                 DateTime.fromMillisecondsSinceEpoch(
                     elements.last['dt'] * 1000).toLocal()));
-            print(_currentSections[startsAtPark ? i - 1 : i]);
             elements.forEach((element) {
               var lat = element['Lat'];
               var lon = element['Lon'];
@@ -509,7 +526,6 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
     polylines = [];
     var s = statefulMapController.lines.length / 2;
     for (var i = 0; i <= s; i++) {
-      print('length' + statefulMapController.lines.toString());
       statefulMapController.removeLine(i.toString());
       statefulMapController.removeLine(i.toString() + 'b');
     }
@@ -1093,7 +1109,7 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                     Container(
                       margin: EdgeInsets.fromLTRB(0, 5, 0, 0),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: tracking ? Colors.green : Colors.white,
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
@@ -1105,6 +1121,21 @@ class _MapScreen extends State<MapPage> with TickerProviderStateMixin {
                                 _animatedMapMove(v, 15);
                               }
                             });
+                            setState(() {
+                              tracking = !tracking;
+                            });
+                            if (tracking) {
+                              Get.rawSnackbar(message: 'Отслеживаем...');
+                              stream = trackCarPosStream().listen((v) {
+                                if (v != null) {
+                                  _animatedMapMove(v, 15);
+                                }
+                              });
+                            }  else {
+                              Get.rawSnackbar(message: 'Отслеживание остановлено');
+                              stream.cancel();
+                              stream = null;
+                            }
                           }
                       ),
                     ),
@@ -1238,7 +1269,6 @@ class _ManuallyControlledSliderState extends State<Carousel> {
               viewportFraction: 1,
               autoPlay: false,
               onPageChanged: (i, r) {
-                print(r);
                 widget.selectSegment(i);
               }
             ),
